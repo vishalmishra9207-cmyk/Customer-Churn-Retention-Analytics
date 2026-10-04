@@ -36,3 +36,27 @@ CREATE TABLE customer_accounts (
         FOREIGN KEY (customer_id)
         REFERENCES customers(customer_id)
 );
+
+
+CREATE TABLE subscriptions (
+    subscription_id INT AUTO_INCREMENT PRIMARY KEY,
+    account_id INT NOT NULL,
+    plan_type ENUM('Basic', 'Standard', 'Premium') DEFAULT NULL,
+    contract_type VARCHAR(20),
+    start_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    end_date DATE DEFAULT NULL,
+    monthly_charges DECIMAL(10,2) DEFAULT 0.00,
+    subscription_status ENUM(
+        'Active',
+        'Hold',
+        'Suspended',
+        'Deactivated',
+        'Terminated'
+    ) DEFAULT 'Active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_customer_accounts
+        FOREIGN KEY (account_id)
+        REFERENCES customer_accounts(account_id)
+);
+
