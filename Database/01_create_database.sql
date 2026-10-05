@@ -60,3 +60,105 @@ CREATE TABLE subscriptions (
         REFERENCES customer_accounts(account_id)
 );
 
+select * from customers ;
+
+
+CREATE TABLE payments (
+    payment_id INT AUTO_INCREMENT PRIMARY KEY,
+
+    subscription_id INT NOT NULL,
+
+    transaction_id VARCHAR(50) NOT NULL UNIQUE,
+
+    payment_amount DECIMAL(10,2) NOT NULL,
+
+    payment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    payment_received_date TIMESTAMP NULL DEFAULT NULL,
+
+    payment_status ENUM(
+        'Successful',
+        'Failed',
+        'Pending',
+        'Refunded'
+    ) NOT NULL DEFAULT 'Pending',
+
+    payment_mode ENUM(
+        'UPI',
+        'Net Banking',
+        'Credit Card',
+        'Debit Card',
+        'Auto Debit',
+        'Other'
+    ) NOT NULL,
+
+    payment_type ENUM(
+        'Recurring',
+        'One-time',
+        'Refund'
+    ) NOT NULL DEFAULT 'Recurring',
+
+    currency CHAR(3) NOT NULL DEFAULT 'INR',
+
+    failure_reason VARCHAR(255) DEFAULT NULL,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ON UPDATE CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_payments_subscription
+        FOREIGN KEY (subscription_id)
+        REFERENCES subscriptions(subscription_id),
+
+    CONSTRAINT chk_payment_amount
+        CHECK (payment_amount >= 0)
+);
+
+
+CREATE TABLE customer_services (
+    service_id INT AUTO_INCREMENT PRIMARY KEY,
+
+    account_id INT NOT NULL,
+
+    service_type ENUM(
+        'Internet',
+        'Streaming',
+        'Cloud Storage',
+        'Premium Support'
+    ) NOT NULL,
+
+    category ENUM(
+        'Basic',
+        'Standard',
+        'Premium'
+    ) DEFAULT NULL,
+
+    activation_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    deactivation_date DATE DEFAULT NULL,
+
+    service_status ENUM(
+        'Active',
+        'Suspended',
+        'Deactivated',
+        'Terminated',
+        'Hold'
+    ) NOT NULL DEFAULT 'Active',
+
+    monthly_charge DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+
+    auto_renewal BOOLEAN NOT NULL DEFAULT TRUE,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ON UPDATE CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_customer_services_account
+        FOREIGN KEY (account_id)
+        REFERENCES customer_accounts(account_id),
+
+    CONSTRAINT chk_service_monthly_charge
+        CHECK (monthly_charge >= 0)
+);
