@@ -162,3 +162,69 @@ CREATE TABLE customer_services (
     CONSTRAINT chk_service_monthly_charge
         CHECK (monthly_charge >= 0)
 );
+
+
+
+CREATE TABLE support_tickets (
+    ticket_id INT AUTO_INCREMENT PRIMARY KEY,
+
+    customer_id INT NOT NULL,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    issue_category ENUM(
+        'Billing',
+        'Internet',
+        'Payment',
+        'Technical',
+        'Service Request',
+        'Account',
+        'Other'
+    ) NOT NULL DEFAULT 'Other',
+
+    priority ENUM(
+        'Low',
+        'Medium',
+        'High',
+        'Critical'
+    ) NOT NULL DEFAULT 'Medium',
+
+    ticket_status ENUM(
+        'Open',
+        'In Progress',
+        'Waiting for Customer',
+        'Waiting for External Team',
+        'Resolved',
+        'Closed',
+        'Cancelled'
+    ) NOT NULL DEFAULT 'Open',
+
+    resolve_date TIMESTAMP NULL DEFAULT NULL,
+
+    resolution VARCHAR(500) DEFAULT NULL,
+
+    resolved_by VARCHAR(100) DEFAULT NULL,
+
+    resolution_category ENUM(
+        'User Training',
+        'Data Fix',
+        'Bulk Fix',
+        'User Mistake',
+        'Technical Fix',
+        'Other'
+    ) DEFAULT NULL,
+
+    contact_email VARCHAR(254) DEFAULT NULL,
+
+    issue_description VARCHAR(3000) NOT NULL,
+
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ON UPDATE CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_support_tickets_customer
+        FOREIGN KEY (customer_id)
+        REFERENCES customers(customer_id),
+
+    CONSTRAINT chk_ticket_resolution_date
+        CHECK (resolve_date IS NULL OR resolve_date >= created_at)
+);
