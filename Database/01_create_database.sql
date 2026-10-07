@@ -228,3 +228,98 @@ CREATE TABLE support_tickets (
     CONSTRAINT chk_ticket_resolution_date
         CHECK (resolve_date IS NULL OR resolve_date >= created_at)
 );
+
+
+CREATE TABLE churn_events (
+    churn_id INT AUTO_INCREMENT PRIMARY KEY,
+    subscription_id INT NOT NULL,
+
+    churn_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    leaving_reason ENUM(
+        'High Price',
+        'Poor Service',
+        'Better Competitor Offer',
+        'Poor Quality',
+        'Lack of Usage',
+        'Technical Issues',
+        'Other'
+    ) DEFAULT 'Other',
+
+    cancellation_channel ENUM(
+        'Customer Support',
+        'Mobile App',
+        'Website',
+        'Email',
+        'In Store',
+        'Other'
+    ) DEFAULT 'Other',
+
+    feedback TEXT DEFAULT NULL,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_churn_events_subscription
+        FOREIGN KEY (subscription_id)
+        REFERENCES subscriptions(subscription_id)
+);
+
+CREATE TABLE retention_activity (
+    activity_id INT AUTO_INCREMENT PRIMARY KEY,
+    customer_id INT NOT NULL,
+    subscription_id INT NOT NULL,
+
+    activity_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    activity_type ENUM(
+        'Discount Offer',
+        'Upgrade Offer',
+        'Downgrade Offer',
+        'Free Service',
+        'Loyalty Reward',
+        'Customer Support',
+        'Personalized Offer',
+        'Other'
+    ) NOT NULL DEFAULT 'Other',
+
+    offer_amount DECIMAL(10,2) DEFAULT 0.00,
+
+    outcome ENUM(
+        'Accepted',
+        'Rejected',
+        'Pending',
+        'No Response'
+    ) NOT NULL DEFAULT 'Pending',
+
+    retention_status ENUM(
+        'Retained',
+        'Churned',
+        'Still Active'
+    ) NOT NULL DEFAULT 'Still Active',
+
+    notes TEXT DEFAULT NULL,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_retention_customer
+        FOREIGN KEY (customer_id)
+        REFERENCES customers(customer_id),
+
+    CONSTRAINT fk_retention_subscription
+        FOREIGN KEY (subscription_id)
+        REFERENCES subscriptions(subscription_id),
+
+    CONSTRAINT chk_offer_amount
+        CHECK (offer_amount >= 0)
+);
+
+SELECT
+    TABLE_NAME,
+    COLUMN_NAME,
+    CONSTRAINT_NAME,
+    REFERENCED_TABLE_NAME,
+    REFERENCED_COLUMN_NAME
+FROM information_schema.KEY_COLUMN_USAGE
+WHERE TABLE_SCHEMA = 'churn_retention_analytics'
+  AND REFERENCED_TABLE_NAME IS NOT NULL
+ORDER BY TABLE_NAME;
