@@ -323,3 +323,5 @@ FROM information_schema.KEY_COLUMN_USAGE
 WHERE TABLE_SCHEMA = 'churn_retention_analytics'
   AND REFERENCED_TABLE_NAME IS NOT NULL
 ORDER BY TABLE_NAME;
+
+select * from customers; 
