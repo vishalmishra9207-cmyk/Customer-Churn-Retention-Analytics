@@ -325,3 +325,8 @@ WHERE TABLE_SCHEMA = 'churn_retention_analytics'
 ORDER BY TABLE_NAME;
 
 select * from customers; 
+
+DESCRIBE churn_retention_analytics.subscriptions;        
+
+SELECT MIN(account_id), MAX(account_id), COUNT(*)
+FROM customer_accounts;
