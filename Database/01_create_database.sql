@@ -330,3 +330,33 @@ DESCRIBE churn_retention_analytics.subscriptions;
 
 SELECT MIN(account_id), MAX(account_id), COUNT(*)
 FROM customer_accounts;
+
+select * from customer_accounts where closed_date is null; 
+
+select * from customers ;
+
+select * from customer_services;
+
+DESCRIBE churn_retention_analytics.subscriptions;        
+
+SELECT MIN(account_id), MAX(account_id), COUNT(*)
+FROM customer_accounts;
+
+SELECT
+    COUNT(*) AS total_accounts,
+    COUNT(DISTINCT account_number) AS unique_accounts,
+    COUNT(DISTINCT customer_id) AS linked_customers
+FROM customer_accounts;
+
+
+SELECT COUNT(*) AS total_accounts FROM customer_accounts;
+
+SELECT COUNT(*) AS existing_subscriptions FROM subscriptions;
+
+SELECT COUNT(*) AS total_rows FROM subscriptions;
+
+SELECT *
+FROM subscriptions
+LIMIT 5;
+
+select * from subscriptions ;
