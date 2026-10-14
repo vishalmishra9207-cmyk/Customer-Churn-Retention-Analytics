@@ -360,3 +360,16 @@ FROM subscriptions
 LIMIT 5;
 
 select * from subscriptions ;
+
+SELECT
+    COUNT(*) AS total_rows,
+    COUNT(DISTINCT subscription_id) AS unique_subscriptions,
+    COUNT(DISTINCT account_id) AS linked_accounts
+FROM subscriptions;
+
+SELECT subscription_status, COUNT(*) AS total
+FROM subscriptions
+GROUP BY subscription_status;
+
+SELECT COUNT(*) AS total_payments
+FROM payments;

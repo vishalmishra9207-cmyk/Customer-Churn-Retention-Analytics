@@ -20,7 +20,6 @@ date_range = (end_date - start_date).days
 
 with open(OUTPUT_FILE, "w", newline="", encoding="utf-8") as file:
     writer = csv.writer(file)
-
     writer.writerow([
         "customer_id",
         "account_number",
@@ -50,24 +49,28 @@ with open(OUTPUT_FILE, "w", newline="", encoding="utf-8") as file:
             days=random.randint(0, date_range)
         )
 
-        closed_date = None
-        if account_status == "Closed":
-            closed_date = open_date + timedelta(
-                days=random.randint(1, max(1, (end_date - open_date).days))
-            )
-            closed_date = min(closed_date, end_date)
-
         balance = round(random.uniform(0, 100000), 2)
+
+        # MySQL Workbench CSV wizard may not interpret \N as SQL NULL.
+        # For reliable import, use the staging-table method if needed.
+        closed_date = r"\N"
+
+        if account_status == "Closed":
+            max_days = max(1, (end_date - open_date).days)
+            closed_date = (
+                open_date
+                + timedelta(days=random.randint(1, max_days))
+            ).isoformat()
 
         writer.writerow([
             customer_id,
             account_number,
             account_type,
-            balance,
+            f"{balance:.2f}",
             account_status,
             open_date.isoformat(),
-            closed_date.isoformat() if closed_date else ""
+            closed_date
         ])
 
-print(f"Generated {TOTAL_ACCOUNTS:,} account records.")
+print(f"Generated {TOTAL_ACCOUNTS:,} customer accounts.")
 print(f"CSV saved at: {OUTPUT_FILE}")
