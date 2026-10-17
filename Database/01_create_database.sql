@@ -373,3 +373,64 @@ GROUP BY subscription_status;
 
 SELECT COUNT(*) AS total_payments
 FROM payments;
+
+SELECT COUNT(*) AS total_subscriptions
+FROM subscriptions;
+
+SELECT
+    MIN(subscription_id) AS min_id,
+    MAX(subscription_id) AS max_id,
+    COUNT(DISTINCT subscription_id) AS unique_ids
+FROM subscriptions;
+
+SELECT
+    COUNT(*) AS total_rows,
+    COUNT(DISTINCT account_id) AS unique_accounts,
+    MIN(start_date) AS earliest_subscription,
+    MAX(start_date) AS latest_subscription
+FROM subscriptions;
+
+SELECT
+    COUNT(*) AS total_rows,
+    COUNT(DISTINCT account_id) AS unique_accounts,
+    MIN(start_date) AS earliest_subscription,
+    MAX(start_date) AS latest_subscription
+FROM subscriptions;
+
+
+SELECT *
+FROM subscriptions
+ORDER BY subscription_id
+LIMIT 10;
+
+SELECT
+    (SELECT COUNT(*) FROM payments) AS payment_rows,
+    (SELECT COUNT(*) FROM churn_events) AS churn_rows,
+    (SELECT COUNT(*) FROM retention_activity) AS retention_rows;
+    
+CREATE TABLE subscriptions_backup_20261016 AS
+SELECT * FROM subscriptions;
+
+SELECT COUNT(*) AS backup_rows
+FROM subscriptions_backup_20261016;
+
+SET SQL_SAFE_UPDATES = 0;
+
+DELETE FROM subscriptions;
+
+SELECT COUNT(*) AS total_subscriptions
+FROM subscriptions;
+
+select *  from payments 
+
+SELECT COUNT(*) AS total_tickets
+FROM support_tickets;
+
+SELECT ticket_status, COUNT(*) AS total
+FROM support_tickets
+GROUP BY ticket_status;
+
+SELECT issue_category, priority, COUNT(*) AS total
+FROM support_tickets
+GROUP BY issue_category, priority
+ORDER BY issue_category, priority;
