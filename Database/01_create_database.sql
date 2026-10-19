@@ -434,3 +434,150 @@ SELECT issue_category, priority, COUNT(*) AS total
 FROM support_tickets
 GROUP BY issue_category, priority
 ORDER BY issue_category, priority;
+
+SELECT 'customers' AS table_name, COUNT(*) AS total_rows FROM customers
+UNION ALL
+SELECT 'customer_accounts', COUNT(*) FROM customer_accounts
+UNION ALL
+SELECT 'subscriptions', COUNT(*) FROM subscriptions
+UNION ALL
+SELECT 'customer_services', COUNT(*) FROM customer_services
+UNION ALL
+SELECT 'payments', COUNT(*) FROM payments
+UNION ALL
+SELECT 'support_tickets', COUNT(*) FROM support_tickets
+UNION ALL
+SELECT 'churn_events', COUNT(*) FROM churn_events
+UNION ALL
+SELECT 'retention_activity', COUNT(*) FROM retention_activity;
+
+
+
+SELECT 'customer_accounts → customers' AS validation,
+       COUNT(*) AS orphan_rows
+FROM customer_accounts ca
+LEFT JOIN customers c ON ca.customer_id = c.customer_id
+WHERE c.customer_id IS NULL
+
+UNION ALL
+
+SELECT 'subscriptions → customer_accounts',
+       COUNT(*)
+FROM subscriptions s
+LEFT JOIN customer_accounts ca ON s.account_id = ca.account_id
+WHERE ca.account_id IS NULL
+
+UNION ALL
+
+SELECT 'customer_services → customer_accounts',
+       COUNT(*)
+FROM customer_services cs
+LEFT JOIN customer_accounts ca ON cs.account_id = ca.account_id
+WHERE ca.account_id IS NULL
+
+UNION ALL
+
+SELECT 'payments → subscriptions',
+       COUNT(*)
+FROM payments p
+LEFT JOIN subscriptions s ON p.subscription_id = s.subscription_id
+WHERE s.subscription_id IS NULL
+
+UNION ALL
+
+SELECT 'support_tickets → customers',
+       COUNT(*)
+FROM support_tickets st
+LEFT JOIN customers c ON st.customer_id = c.customer_id
+WHERE c.customer_id IS NULL
+
+UNION ALL
+
+SELECT 'churn_events → subscriptions',
+       COUNT(*)
+FROM churn_events ce
+LEFT JOIN subscriptions s ON ce.subscription_id = s.subscription_id
+WHERE s.subscription_id IS NULL
+
+UNION ALL
+
+SELECT 'retention_activity → customers',
+       COUNT(*)
+FROM retention_activity ra
+LEFT JOIN customers c ON ra.customer_id = c.customer_id
+WHERE c.customer_id IS NULL
+
+UNION ALL
+
+SELECT 'retention_activity → subscriptions',
+       COUNT(*)
+FROM retention_activity ra
+LEFT JOIN subscriptions s ON ra.subscription_id = s.subscription_id
+WHERE s.subscription_id IS NULL;
+
+SELECT
+    COUNT(*) AS total_customers,
+    COUNT(DISTINCT mobile_number) AS unique_mobile_numbers,
+    COUNT(DISTINCT email) AS unique_emails,
+    SUM(CASE WHEN mobile_number IS NULL OR TRIM(mobile_number) = '' THEN 1 ELSE 0 END) AS missing_mobile,
+    SUM(CASE WHEN email IS NULL OR TRIM(email) = '' THEN 1 ELSE 0 END) AS missing_email,
+    SUM(CASE WHEN customer_name IS NULL OR TRIM(customer_name) = '' THEN 1 ELSE 0 END) AS missing_names
+FROM customers;
+
+
+
+SELECT
+    COUNT(*) AS total_payments,
+
+    SUM(CASE
+        WHEN payment_amount <= 0 THEN 1
+        ELSE 0
+    END) AS invalid_amounts,
+
+    SUM(CASE
+        WHEN payment_status = 'Failed'
+         AND (failure_reason IS NULL OR TRIM(failure_reason) = '')
+        THEN 1 ELSE 0
+    END) AS failed_without_reason,
+
+    SUM(CASE
+        WHEN payment_status IN ('Successful', 'Refunded')
+         AND payment_received_date IS NULL
+        THEN 1 ELSE 0
+    END) AS missing_received_date,
+
+    SUM(CASE
+        WHEN payment_received_date < payment_date
+        THEN 1 ELSE 0
+    END) AS received_before_payment
+
+FROM payments;
+
+
+SELECT
+    COUNT(*) AS total_churn_events,
+
+    SUM(CASE
+        WHEN s.subscription_status NOT IN ('Terminated', 'Deactivated')
+        THEN 1 ELSE 0
+    END) AS invalid_subscription_status,
+
+    SUM(CASE
+        WHEN s.end_date IS NULL
+        THEN 1 ELSE 0
+    END) AS missing_subscription_end_date,
+
+    SUM(CASE
+        WHEN ce.churn_date > CURRENT_TIMESTAMP
+        THEN 1 ELSE 0
+    END) AS future_churn_dates,
+
+    SUM(CASE
+        WHEN s.end_date IS NOT NULL
+         AND ce.churn_date > s.end_date
+        THEN 1 ELSE 0
+    END) AS churn_after_subscription_end
+
+FROM churn_events ce
+JOIN subscriptions s
+    ON ce.subscription_id = s.subscription_id;
