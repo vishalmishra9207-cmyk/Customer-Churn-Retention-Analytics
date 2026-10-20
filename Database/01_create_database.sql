@@ -581,3 +581,119 @@ SELECT
 FROM churn_events ce
 JOIN subscriptions s
     ON ce.subscription_id = s.subscription_id;
+
+SELECT
+    ce.churn_id,
+    ce.subscription_id,
+    ce.churn_date,
+    s.end_date,
+    s.subscription_status
+FROM churn_events ce
+JOIN subscriptions s
+    ON ce.subscription_id = s.subscription_id
+WHERE DATE(ce.churn_date) > s.end_date
+ORDER BY ce.churn_date DESC
+LIMIT 10;
+
+
+
+SELECT
+    COUNT(*) AS total_subscriptions,
+    SUM(CASE
+        WHEN subscription_status IN ('Terminated', 'Deactivated')
+        THEN 1 ELSE 0
+    END) AS terminated_or_deactivated,
+    SUM(CASE
+        WHEN subscription_status IN ('Terminated', 'Deactivated')
+         AND end_date IS NOT NULL
+        THEN 1 ELSE 0
+    END) AS with_end_date
+FROM subscriptions;
+
+
+
+SELECT
+    YEAR(ce.churn_date) AS churn_year,
+    COUNT(*) AS churn_events,
+    SUM(
+        CASE
+            WHEN DATE(ce.churn_date) > s.end_date
+            THEN 1 ELSE 0
+        END
+    ) AS dates_after_end_date
+FROM churn_events ce
+JOIN subscriptions s
+    ON ce.subscription_id = s.subscription_id
+GROUP BY YEAR(ce.churn_date)
+ORDER BY churn_year;
+
+
+
+SELECT
+    COUNT(*) AS total_churn_events,
+
+    SUM(CASE
+        WHEN s.end_date IS NULL THEN 1
+        ELSE 0
+    END) AS missing_end_date,
+
+    SUM(CASE
+        WHEN s.end_date IS NOT NULL
+         AND DATE(ce.churn_date) > s.end_date
+        THEN 1 ELSE 0
+    END) AS churn_after_end_date,
+
+    SUM(CASE
+        WHEN s.end_date IS NOT NULL
+         AND DATE(ce.churn_date) <= s.end_date
+        THEN 1 ELSE 0
+    END) AS churn_on_or_before_end_date
+
+FROM churn_events ce
+JOIN subscriptions s
+    ON ce.subscription_id = s.subscription_id;
+
+select * from churn_events;
+
+
+
+SELECT
+    (SELECT COUNT(*)
+     FROM customers) AS total_customers,
+
+    (SELECT COUNT(*)
+     FROM subscriptions
+     WHERE subscription_status = 'Active'
+    ) AS active_subscriptions,
+
+    (SELECT COUNT(DISTINCT subscription_id)
+     FROM churn_events
+    ) AS churned_subscriptions,
+
+    (SELECT ROUND(SUM(monthly_charges), 2)
+     FROM subscriptions
+     WHERE subscription_status = 'Active'
+    ) AS monthly_recurring_revenue,
+
+    (SELECT ROUND(AVG(monthly_charges), 2)
+     FROM subscriptions
+     WHERE subscription_status = 'Active'
+    ) AS avg_active_subscription_charge;
+
+
+SELECT
+    DATE_FORMAT(churn_date, '%Y-%m') AS churn_month,
+    COUNT(*) AS churn_events,
+    COUNT(DISTINCT subscription_id) AS unique_subscriptions
+FROM churn_events
+GROUP BY DATE_FORMAT(churn_date, '%Y-%m')
+ORDER BY churn_month;
+
+
+SELECT
+    DATE_FORMAT(churn_date, '%Y-%m') AS churn_month,
+    COUNT(*) AS churn_events,
+    COUNT(DISTINCT subscription_id) AS unique_subscriptions
+FROM churn_events
+GROUP BY DATE_FORMAT(churn_date, '%Y-%m')
+ORDER BY churn_month;
