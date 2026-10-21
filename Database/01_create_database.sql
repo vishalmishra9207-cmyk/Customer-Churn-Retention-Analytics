@@ -697,3 +697,168 @@ SELECT
 FROM churn_events
 GROUP BY DATE_FORMAT(churn_date, '%Y-%m')
 ORDER BY churn_month;
+
+
+
+
+SELECT
+    DATE_FORMAT(churn_date, '%Y-%m') AS churn_month,
+    COUNT(*) AS churn_events,
+    COUNT(DISTINCT subscription_id) AS unique_subscriptions
+FROM churn_events
+GROUP BY DATE_FORMAT(churn_date, '%Y-%m')
+ORDER BY churn_month;
+
+
+SELECT
+    (SELECT COUNT(DISTINCT subscription_id)
+     FROM churn_events) AS churned_subscriptions,
+
+    (SELECT COUNT(*)
+     FROM subscriptions) AS total_subscriptions,
+
+    ROUND(
+        (SELECT COUNT(DISTINCT subscription_id)
+         FROM churn_events) * 100.0
+        /
+        (SELECT COUNT(*)
+         FROM subscriptions),
+        2
+    ) AS churn_event_ratio_pct;
+
+
+
+
+SELECT
+    leaving_reason,
+    COUNT(*) AS churn_events,
+    ROUND(
+        COUNT(*) * 100.0 /
+        (SELECT COUNT(*) FROM churn_events),
+        2
+    ) AS percentage
+FROM churn_events
+GROUP BY leaving_reason
+ORDER BY churn_events DESC;
+
+
+SELECT
+    s.plan_type,
+    COUNT(*) AS churn_events,
+    ROUND(AVG(s.monthly_charges), 2) AS avg_monthly_charge,
+    ROUND(
+        COUNT(*) * 100.0 /
+        (SELECT COUNT(*) FROM churn_events),
+        2
+    ) AS percentage_of_churn
+FROM churn_events ce
+JOIN subscriptions s
+    ON ce.subscription_id = s.subscription_id
+GROUP BY s.plan_type
+ORDER BY churn_events DESC;
+
+
+SELECT
+    s.plan_type,
+    COUNT(DISTINCT s.subscription_id) AS total_subscriptions,
+    COUNT(DISTINCT ce.subscription_id) AS churned_subscriptions,
+    ROUND(
+        COUNT(DISTINCT ce.subscription_id) * 100.0 /
+        COUNT(DISTINCT s.subscription_id),
+        2
+    ) AS churn_ratio_pct
+FROM subscriptions s
+LEFT JOIN churn_events ce
+    ON s.subscription_id = ce.subscription_id
+GROUP BY s.plan_type
+ORDER BY churn_ratio_pct DESC;
+
+
+
+SELECT
+    payment_status,
+    COUNT(*) AS total_transactions,
+    ROUND(
+        COUNT(*) * 100.0 /
+        (SELECT COUNT(*) FROM payments),
+        2
+    ) AS percentage,
+    ROUND(SUM(payment_amount), 2) AS total_payment_amount
+FROM payments
+GROUP BY payment_status
+ORDER BY total_transactions DESC;
+
+
+
+WITH payment_summary AS (
+    SELECT
+        subscription_id,
+        COUNT(*) AS total_payments,
+        SUM(
+            CASE WHEN payment_status = 'Failed'
+            THEN 1 ELSE 0 END
+        ) AS failed_payments
+    FROM payments
+    GROUP BY subscription_id
+),
+subscription_analysis AS (
+    SELECT
+        s.subscription_id,
+        CASE
+            WHEN COALESCE(p.failed_payments, 0) > 0
+            THEN 'Has Failed Payments'
+            ELSE 'No Failed Payments'
+        END AS payment_group,
+        CASE
+            WHEN ce.subscription_id IS NOT NULL
+            THEN 1 ELSE 0
+        END AS churned
+    FROM subscriptions s
+    LEFT JOIN payment_summary p
+        ON s.subscription_id = p.subscription_id
+    LEFT JOIN churn_events ce
+        ON s.subscription_id = ce.subscription_id
+)
+SELECT
+    payment_group,
+    COUNT(*) AS total_subscriptions,
+    SUM(churned) AS churned_subscriptions,
+    ROUND(AVG(churned) * 100, 2) AS churn_ratio_pct
+FROM subscription_analysis
+GROUP BY payment_group
+ORDER BY churn_ratio_pct DESC;
+
+
+
+SELECT
+    activity_type,
+    outcome,
+    COUNT(*) AS total_activities,
+    ROUND(
+        COUNT(*) * 100.0 /
+        SUM(COUNT(*)) OVER (PARTITION BY activity_type),
+        2
+    ) AS outcome_pct
+FROM retention_activity
+GROUP BY activity_type, outcome
+ORDER BY activity_type, total_activities DESC;
+
+
+SELECT
+    activity_type,
+    outcome,
+    COUNT(*) AS total_activities,
+    ROUND(
+        COUNT(*) * 100.0 /
+        SUM(COUNT(*)) OVER (
+            PARTITION BY activity_type
+        ),
+        2
+    ) AS outcome_percentage
+FROM retention_activity
+GROUP BY
+    activity_type,
+    outcome
+ORDER BY
+    activity_type,
+    total_activities DESC;
