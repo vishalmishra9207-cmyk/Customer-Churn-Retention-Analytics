@@ -166,3 +166,145 @@ on a.account_id = s.account_id
 group by c.customer_id , c.customer_name 
 having round(sum(s.monthly_charges) , 2) > 2000 
 order by total_monthly_charges desc;
+
+"""
+Business Problem: Monthly Payment Analysis
+Finance team ko samajhna hai ki har month kitne payments receive hue.
+
+payments table se ye columns return kar:
+- payment_month — format YYYY-MM, jaise 2026-01
+- total_payments — total payment records
+- total_payment_amount — total payment amount, 2 decimal places tak
+Conditions:
+1. Payments ko month-wise group karna hai.
+2. Latest month sabse pehle dikhna chahiye.
+3. Abhi payment status ka filter mat lagana; sabhi payment records include karne hain.
+
+"""
+
+SELECT
+    DATE_FORMAT(payment_date, '%Y-%m') AS payment_month,
+    COUNT(*) AS total_payments,
+    ROUND(SUM(payment_amount), 2) AS total_payment_amount
+FROM payments
+GROUP BY DATE_FORMAT(payment_date, '%Y-%m')
+ORDER BY payment_month DESC;
+
+
+"""
+usiness Problem: Monthly Successful Payment Revenue
+Finance team ko har month ki successful payments se aane wali total amount dekhni hai.
+
+payments table se ye columns return kar:
+- payment_month — YYYY-MM format
+- successful_payments — successful payment records ki count
+- successful_payment_amount — successful payments ki total amount, 2 decimal places tak
+Conditions:
+- Sirf Successful status wale payments include karne hain.
+- Latest month sabse pehle dikhna chahiye.
+
+"""
+
+select 
+	date_format(payment_date , "%Y-%m") as payment_month ,
+    count(case when payment_status = "Successful" then 1 end) as successfull_payments,
+    round(sum(case when payment_status = "Successful" then payment_amount else 0 end),2) as successfull_payment_amount
+from payments 
+	group by date_format(payment_date ,"%Y-%m")
+    order by payment_month desc;
+
+"""
+payments table se har payment_mode (UPI, Card, Net Banking, etc.) ke liye ye details nikaalni hain:
+- payment_mode
+- Total failed payments → failed_payments
+- Failed payments ki total amount → failed_payment_amount, 2 decimal places tak
+- Sirf Failed status wali payments count aur sum karni hain.
+- Sabse zyada failed payments wale mode ko pehle dikhana hai.
+Expected output format:
+payment_mode	failed_payments	failed_payment_amount
+UPI	1200	450000.00
+Card	900	380000.00
+
+Ye sirf example hai, actual results tumhare database se aayenge.
+
+"""
+
+select 
+    payment_mode,
+    count(case when payment_status = "Failed" then 1 end ) as total_failed_payment ,
+    round(sum(case when payment_status = "Failed" then payment_amount else 0 end),2) as failed_payment_amount
+from payments 
+	group by payment_mode
+    order by total_failed_payment desc;
+
+"""
+Q4 — Customer Payment Summary
+Ab payments table se har subscription_id ke liye ye details nikaal:
+1. subscription_id
+2. Total transactions → total_transactions
+3. Successful transactions → successful_transactions
+4. Total amount received from successful payments → successful_amount (2 decimal places)
+Conditions:
+- Saari transactions count karni hain.
+- Successful transactions sirf Successful status wali count karni hain.
+- Successful amount mein sirf Successful payments ka amount add karna hai.
+- Sabse zyada transactions wale subscription ko pehle dikhana hai.
+
+"""
+
+SELECT
+    subscription_id,
+    COUNT(*) AS total_transactions,
+    COUNT(
+        CASE
+            WHEN payment_status = 'Successful' THEN 1
+        END
+    ) AS successful_transactions,
+    ROUND(
+        SUM(
+            CASE
+                WHEN payment_status = 'Successful'
+                THEN payment_amount
+                ELSE 0
+            END
+        ), 2
+    ) AS successful_amount
+FROM payments
+GROUP BY subscription_id
+ORDER BY total_transactions DESC;
+
+"""
+payments table se un subscriptions ki list nikaal jinki 5 se zyada Failed payments hain.
+
+Output mein ye columns chahiye:
+- subscription_id
+- failed_payments — failed payments ki count
+- failed_amount — failed payments ki total amount, 2 decimal places tak
+Condition: sirf un subscriptions ko dikhana jahan failed payments ki count 5 se zyada ho.
+
+"""
+
+SELECT
+    subscription_id,
+    COUNT(
+        CASE
+            WHEN payment_status = 'Failed' THEN 1
+        END
+    ) AS failed_payment,
+    ROUND(
+        SUM(
+            CASE
+                WHEN payment_status = 'Failed'
+                THEN payment_amount
+                ELSE 0
+            END
+        ), 2
+    ) AS failed_amount
+FROM payments
+GROUP BY subscription_id
+HAVING COUNT(
+    CASE
+        WHEN payment_status = 'Failed' THEN 1
+    END
+) > 5
+ORDER BY failed_payment DESC;
