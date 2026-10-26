@@ -129,3 +129,28 @@ HAVING COUNT(
     END
 ) > 5
 ORDER BY failed_payment DESC;
+
+select 
+	subscription_id ,
+    count(
+		case when payment_status = "Successful"
+        then 1 end
+    ) as successfull_payment_count ,
+    count(
+		case when payment_status = "Failed"
+        then 1 end
+    ) as failed_payment_count ,
+    count(
+		case when payment_status = "Pending"
+        then 1 end
+    ) as pending_payment_count  , 
+    count(
+		case when payment_status = "Refunded"
+        then 1 end 
+    )  as refund_payment_count ,
+    
+    count(*) as total_transactions
+    
+from payments 
+group by subscription_id 
+order by total_transactions desc ;

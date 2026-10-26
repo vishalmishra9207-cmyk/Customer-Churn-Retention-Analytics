@@ -308,3 +308,197 @@ HAVING COUNT(
     END
 ) > 5
 ORDER BY failed_payment DESC;
+
+
+"""
+Business Problem: Customer Payment Risk Analysis
+
+Company un customers ko identify karna chahti hai jinke payments baar-baar fail ho rahe hain.
+
+payments table se un subscription_id ki list nikalo jinke Failed payments 10 se zyada hain.
+
+Output mein ye columns chahiye:
+1. subscription_id
+2. failed_payments — failed payments ki total count.
+3. failed_amount — failed payments ki total amount, 2 decimal places tak.
+Sorting: Sabse zyada failed payments wala subscription pehle aana chahiye.
+
+"""
+
+select 
+	s.subscription_id ,
+    count(
+		case 
+			when
+				p.payment_status = "Failed" 
+                then 1 
+					end 
+                    ) as failed_payment ,
+                    
+	round(
+		sum(
+			case 
+				when 
+                p.payment_status = "Failed"
+				then p.payment_amount 
+				else 0 
+				end) , 2) as failed_payment_amount 
+from subscriptions s 
+	join payments p 
+on s.subscription_id = p.subscription_id 
+group by s.subscription_id 
+having     
+count(
+		case 
+			when
+				p.payment_status = "Failed" 
+                then 1 
+					end 
+                    )  > 10 
+	order by failed_payment desc;
+
+"""
+Q2 — Customer Churn Risk Analysis
+Company un customers ko identify karna chahti hai jinke support tickets bahut zyada hain aur jo churn risk mein ho sakte hain.
+
+support_tickets table se un customers ki list nikalo jinhone 10 se zyada support tickets raise kiye hain.
+
+Output columns:
+1. customer_id
+2. total_tickets — total support tickets
+Conditions:
+- Sirf 10 se zyada tickets wale customers.
+- Sabse zyada tickets wala customer pehle.
+
+"""
+
+select 
+    c.customer_id ,
+    count(s.*)as total_ticket
+from customers c 
+    join support_tickets s 
+on c.customer_id = s.customer_id 
+group by c.customer_id 
+having count(s.*)> 10 order by c.customer_id desc ;
+
+"""
+Q3 — Failed Payment Customers
+Ab business team ko un customers ki list chahiye jinki subscriptions par failed payments hue hain.
+
+customers, customer_accounts, subscriptions aur payments tables ko join karke har customer ke liye:
+- customer_id
+- customer_name
+- failed_payments — total failed payments ki count
+Conditions:
+- Sirf customers jinki failed payments ki count 5 se zyada hai.
+- Highest failed-payment count wala customer pehle.
+
+"""
+
+select 
+	c.customer_id , 
+    c.customer_name ,
+    count(
+		case 
+			when p.payment_status = "Failed"
+            then 1 end
+            ) as  failed_payments 
+from customers c 
+join customer_accounts a 
+on c.customer_id = a.customer_id
+join subscriptions s 
+on a.account_id = s.account_id 
+join payments p 
+on s.subscription_id = p.subscription_id 
+group by c.customer_id , c.customer_name 
+having     
+count(
+case 
+	when p.payment_status = "Failed"
+	then 1 end
+	) > 5 
+    order by failed_payments desc ;
+
+"""
+Q4 — Customer Payment Success Rate
+Ab business team ko pata karna hai ki har customer ki kitni payments successful rahi hain.
+
+Ussi JOIN chain ka use kar:
+
+customers → customer_accounts → subscriptions → payments
+
+Output mein ye columns chahiye:
+- customer_id
+- customer_name
+- total_payments
+- successful_payments
+- success_rate — successful payments ka percentage, 2 decimal places tak.
+
+"""
+
+SELECT
+    c.customer_id,
+    c.customer_name,
+    COUNT(*) AS total_payments,
+    COUNT(
+        CASE
+            WHEN p.payment_status = 'Successful' THEN 1
+        END
+    ) AS successful_payments,
+    ROUND(
+        COUNT(
+            CASE
+                WHEN p.payment_status = 'Successful' THEN 1
+            END
+        ) * 100.0 / COUNT(*),
+        2
+    ) AS success_rate
+FROM customers c
+JOIN customer_accounts a
+    ON c.customer_id = a.customer_id
+JOIN subscriptions s
+    ON a.account_id = s.account_id
+JOIN payments p
+    ON s.subscription_id = p.subscription_id
+GROUP BY c.customer_id, c.customer_name
+ORDER BY success_rate DESC;
+
+
+"""
+Q5 — Aaj ka last question
+Ab humein har customer ka payment status breakdown nikalna hai.
+
+payments table se har subscription_id ke liye:
+- subscription_id
+- Successful payments count
+- Failed payments count
+- Pending payments count
+- Refunded payments count
+Har status ka count alag column mein hona chahiye. Sabse zyada total transactions wale subscription ko pehle dikhana hai.
+
+""" 
+
+select 
+	subscription_id ,
+    count(
+		case when payment_status = "Successful"
+        then 1 end
+    ) as successfull_payment_count ,
+    count(
+		case when payment_status = "Failed"
+        then 1 end
+    ) as failed_payment_count ,
+    count(
+		case when payment_status = "Pending"
+        then 1 end
+    ) as pending_payment_count  , 
+    count(
+		case when payment_status = "Refunded"
+        then 1 end 
+    )  as refund_payment_count ,
+    
+    count(*) as total_transactions
+    
+from payments 
+group by subscription_id 
+order by total_transactions desc ;
