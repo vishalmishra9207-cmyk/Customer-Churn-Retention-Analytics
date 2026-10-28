@@ -862,3 +862,16 @@ GROUP BY
 ORDER BY
     activity_type,
     total_activities DESC;
+
+select * from support_tickets;
+
+select * from subscriptions;
+
+select * from payments ;
+select * from customers;
+select * from churn_events;
+select * from subscriptions ;
+SELECT DISTINCT outcome
+FROM retention_activity;
+
+select * from retention_activity;
