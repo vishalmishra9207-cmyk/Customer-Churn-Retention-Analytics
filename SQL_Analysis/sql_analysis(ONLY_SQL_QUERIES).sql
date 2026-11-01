@@ -154,3 +154,263 @@ select
 from payments 
 group by subscription_id 
 order by total_transactions desc ;
+
+
+select 
+	s.plan_type ,
+    count(*) as total_subscriptions,
+    count(ce.subscription_id) as churned_customers ,
+    round (count(ce.subscription_id) * 100 / count(*) , 2) as churn_percentage
+from subscriptions s
+left join churn_events ce
+	on s.subscription_id = ce.subscription_id
+group by s.plan_type;
+
+select 
+	activity_type as offer_type ,
+    count(*) as total_offers ,
+    count(
+		case 
+			when retention_status = "Still Active" 
+            then 1 
+            end
+        ) as accepted_offers ,
+	round (
+    count(
+		case 
+			when retention_status = "Still Active" 
+            then 1 
+            end ) * 100 / count(*)
+    ,2 ) as accepted_percentage
+from retention_activity
+group by activity_type
+	order by accepted_percentage desc;
+    
+SELECT
+    ce.leaving_reason AS churn_reason,
+    COUNT(*) AS total_churned_customers,
+    ROUND(AVG(s.monthly_charges), 2) AS average_monthly_charges
+FROM subscriptions s
+JOIN churn_events ce
+    ON s.subscription_id = ce.subscription_id
+GROUP BY ce.leaving_reason
+ORDER BY total_churned_customers DESC;
+
+
+select 
+	activity_type ,
+    count(*) as total_activity,
+    count(
+		case
+			when 
+				retention_status = "Still_active"
+                then 1 
+                end
+		) as retained_cutomers ,
+	count(
+		case 
+			when 
+				retention_status = "Churned"
+                then 1 
+                end
+		) as churned_customers 
+from retention_activity
+group by activity_type;
+
+select 
+    c.customer_id ,
+    c.customer_name ,
+    s.monthly_charges ,
+    ce.leaving_reason
+from customers c 
+    join customer_accounts a 
+on c.customer_id = a.customer_id
+    join subscriptions s 
+on a.account_id = s.account_id 
+    join churn_events ce 
+on s.subscription_id = ce.subscription_id 
+where  s.monthly_charges > 1000;
+
+select 
+	s.plan_type ,
+    count( ce.subscription_id) as churned_subscriptions ,
+    sum(s.monthly_charges) as total_lost_monthly_revenue 
+from subscriptions s 
+	join churn_events ce 
+on s.subscription_id = ce.subscription_id 
+group by s.plan_type
+ORDER BY total_lost_monthly_revenue DESC;
+
+select 
+	s.contract_type ,
+    count(*) as total_subscriptions ,
+    count(ce.subscription_id) as churned_subscriptions, 
+    round(COUNT(ce.subscription_id) * 100 / count(*) ,2 ) as churn_percentage 
+from subscriptions s
+	left join churn_events ce 
+on s.subscription_id = ce.subscription_id 
+group by s.contract_type
+order by churn_percentage desc;
+
+select 
+    c.customer_id ,
+    c.customer_name ,
+    count(
+        case 
+            when p.payment_status = "Failed"
+            then 1 
+            end
+    ) as total_failed_payments ,
+
+    sum(
+        case when p.payment_status = "Failed"
+        then p.payment_amount 
+        else 0 
+        end
+    ) as failed_payment_amount 
+
+from customers c 
+    join customer_accounts a 
+on c.customer_id = a.customer_id 
+    join subscriptions s 
+on s.account_id = a.account_id 
+    join payments p 
+on p.subscription_id = s.subscription_id 
+group by c.customer_id , c.customer_name 
+HAVING COUNT(
+    CASE
+        WHEN p.payment_status = 'Failed' THEN 1
+    END
+) > 5
+order by failed_payment_amount desc;
+
+
+
+select 
+        CASE
+            WHEN 
+            ce.subscription_id IS NOT NULL THEN 'Churned'
+        ELSE 'Retained'
+        END as customer_category ,
+    
+    count(*) as total_subscriptions ,
+
+    avg(s.monthly_charges) as average_monthly_charges,
+    sum(s.monthly_charges) as total_monthly_charges
+from subscriptions s
+    left join churn_events ce
+on s.subscription_id = ce.subscription_id 
+group by  CASE
+            WHEN 
+            ce.subscription_id IS NOT NULL THEN 'Churned'
+        ELSE 'Retained'
+        END ;
+        
+        
+select 
+	ce.leaving_reason,
+    count(ce.subscription_id) as churned_subscriptions ,
+    avg(s.monthly_charges) as average_monthly_charges ,
+    sum(
+		case 
+			when ce.subscription_id is not null 
+            then s.monthly_charges
+				end
+    ) as total_lost_monthly_charges
+from  subscriptions s 
+	join churn_events ce
+on s.subscription_id = ce.subscription_id
+group by ce.leaving_reason
+order by total_lost_monthly_charges desc;
+
+select 
+	c.customer_id ,
+    c.customer_name ,
+    s.plan_type ,
+    s.monthly_charges ,
+    ce.leaving_reason
+from customers c 
+	join customer_accounts ca
+on c.customer_id = ca.customer_id 
+	join subscriptions s
+on ca.account_id = s.account_id 
+	join churn_events ce 
+on ce.subscription_id = s.subscription_id 
+group by 
+	c.customer_id , 
+    c.customer_name , 
+    s.plan_type , 
+    s.monthly_charges , 
+    ce.leaving_reason
+having s.monthly_charges > 800
+	order by s.monthly_charges desc;
+    
+SELECT
+    activity_type,
+    COUNT(*) AS total_activities,
+   COUNT(
+    CASE
+        WHEN retention_status = 'Still_active' THEN 1
+    END
+) as still_active_count,
+    ROUND(
+COUNT(
+    CASE
+        WHEN retention_status = 'Still_active' THEN 1
+    END
+) * 100 / COUNT(*),
+        2
+    ) AS still_active_percentage
+FROM retention_activity
+GROUP BY activity_type
+ORDER BY still_active_percentage DESC;
+
+select 
+	c.customer_id ,
+    c.customer_name,
+    count(ra.customer_id) as totol_retention_attempts 
+from customers c 
+	left join retention_activity ra 
+on c.customer_id = ra.customer_id 
+group by c.customer_id , c.customer_name
+having count(ra.customer_id) > 3 
+order by  totol_retention_attempts desc;
+
+SELECT
+    ra.activity_type,
+    COUNT(*) AS total_activity,
+    COUNT(
+        CASE
+            WHEN ce.churn_id IS NOT NULL THEN 1
+        END
+    ) AS churned_count,
+    ROUND(
+        COUNT(
+            CASE
+                WHEN ce.churn_id IS NOT NULL THEN 1
+            END
+        ) * 100.0 / COUNT(*),
+        2
+    ) AS churned_percentage
+FROM retention_activity ra
+LEFT JOIN churn_events ce
+    ON ra.subscription_id = ce.subscription_id
+GROUP BY ra.activity_type
+ORDER BY churned_percentage DESC;
+
+select 
+	s.plan_type ,
+    count(ra.activity_type) as total_activities ,
+    count(distinct c.customer_id) as unique_customers ,
+    COUNT(CASE WHEN ce.churn_id IS NOT NULL THEN 1 END) as churned_activities 
+from customers c 
+	join customer_accounts ca 
+on c.customer_id = ca.customer_id
+	join subscriptions s 
+on ca.account_id = s.account_id 
+	left join churn_events ce
+on s.subscription_id  = ce.subscription_id 
+	join retention_activity ra 
+on ra.subscription_id = s.subscription_id
+group by s.plan_type
+ORDER BY total_activities DESC;

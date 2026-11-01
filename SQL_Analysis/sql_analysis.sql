@@ -502,3 +502,450 @@ select
 from payments 
 group by subscription_id 
 order by total_transactions desc ;
+
+""" Day 4 """ 
+
+"""
+Business Problem: Company ko dekhna hai ki har subscription plan mein kitne customers churn hue hain aur unka churn percentage kya hai.
+
+Output mein ye columns chahiye:
+- plan_name
+- total_customers
+- churned_customers
+- churn_percentage
+"""
+
+select 
+	s.plan_type ,
+    count(*) as total_subscriptions,
+    count(ce.subscription_id) as churned_customers ,
+    round (count(ce.subscription_id) * 100 / count(*) , 2) as churn_percentage
+from subscriptions s
+left join churn_events ce
+	on s.subscription_id = ce.subscription_id
+group by s.plan_type;
+
+"""
+Business Problem: Company dekhna chahti hai ki different retention offers mein kitne customers ne offer accept kiya.
+
+Humein har offer type ke liye calculate karna hai:
+1. offer_type
+2. total_offers
+3. accepted_offers
+4. acceptance_percentage
+
+"""
+
+select 
+	activity_type as offer_type ,
+    count(*) as total_offers ,
+    count(
+		case 
+			when retention_status = "Still Active" 
+            then 1 
+            end
+        ) as accepted_offers ,
+	round (
+    count(
+		case 
+			when retention_status = "Still Active" 
+            then 1 
+            end ) * 100 / count(*)
+    ,2 ) as accepted_percentage
+from retention_activity
+group by activity_type
+	order by accepted_percentage desc;
+
+"""
+.
+🎯 Q3 — Churn Reason Analysis
+Business Problem: Company ko samajhna hai ki customers sabse zyada kis reason se churn kar rahe hain, taaki woh apni retention strategy improve kar sake.
+
+Humein har churn reason ke liye nikalna hai:
+- churn_reason
+- total_churned_customers
+- average_monthly_charges
+
+""" 
+
+SELECT
+    ce.leaving_reason AS churn_reason,
+    COUNT(*) AS total_churned_customers,
+    ROUND(AVG(s.monthly_charges), 2) AS average_monthly_charges
+FROM subscriptions s
+JOIN churn_events ce
+    ON s.subscription_id = ce.subscription_id
+GROUP BY ce.leaving_reason
+ORDER BY total_churned_customers DESC;
+
+
+
+"""
+🎯 Q4 — Retention Offer Effectiveness
+Business Problem: Company check karna chahti hai ki retention offers dene ke baad kitne customers retain hue aur kitne churn ho gaye.
+
+Output mein ye columns chahiye:
+1. activity_type — retention activity ka type
+2. total_activities — total activities
+3. retained_customers — retention status Still Active wale records
+4. churned_customers — retention status Churned wale records
+
+"""
+select 
+	activity_type ,
+    count(*) as total_activity,
+    count(
+		case
+			when 
+				retention_status = "Still_active"
+                then 1 
+                end
+		) as retained_cutomers ,
+	count(
+		case 
+			when 
+				retention_status = "Churned"
+                then 1 
+                end
+		) as churned_customers 
+from retention_activity
+group by activity_type;
+
+
+"""
+🎯 Q5 — High-Value Customers Who Churned
+Business Problem: Company identify karna chahti hai ki churn hone wale customers mein kaunse customers zyada monthly charges pay kar rahe the, taaki unke churn hone ka financial impact samajh sake.
+
+Output mein ye 4 columns chahiye:
+1. customer_id
+2. customer_name
+3. monthly_charges
+4. leaving_reason
+
+"""
+select 
+    c.customer_id ,
+    c.customer_name ,
+    s.monthly_charges ,
+    ce.leaving_reason
+from customers c 
+    join customer_accouts a 
+on c.customer_id = a.customer_id
+    join subscriptions s 
+on a.account_id = s.account_id 
+    join churn_events ce 
+on s.subscription_id = ce.subscription_id ;
+
+"Day 6"
+
+"""
+🎯 Day 6 — Question 1/5
+Business Problem: Churned Customers se Kitna Revenue Impact Hua?
+Company jaanana chahti hai ki har subscription plan mein churn hue customers ki monthly charges ki total value kitni thi.
+
+Output mein ye columns chahiye:
+Column	Meaning
+plan_type	Subscription plan
+churned_subscriptions	Churn hui subscriptions ki count
+total_lost_monthly_revenue	Un subscriptions ke monthly charges ka total
+
+"""
+
+select 
+	s.plan_type ,
+    count( ce.subscription_id) as churned_subscriptions ,
+    sum(s.monthly_charges) as total_lost_monthly_revenue 
+from subscriptions s 
+	join churn_events ce 
+on s.subscription_id = ce.subscription_id 
+group by s.plan_type
+ORDER BY total_lost_monthly_revenue DESC;
+
+"""
+🎯 Q2 — Churn Rate by Contract Type
+Business Problem: Company jaanana chahti hai ki kaunse contract type mein churn rate sabse zyada hai.
+
+Output:
+- contract_type
+- total_subscriptions
+- churned_subscriptions
+- churn_percentage
+
+"""
+
+select 
+	s.contract_type ,
+    count(*) as total_subscriptions ,
+    count(ce.subscription_id) as churned_subscriptions, 
+    round(COUNT(ce.subscription_id) * 100 / count(*) ,2 ) as churn_percentage 
+from subscriptions s
+	left join churn_events ce 
+on s.subscription_id = ce.subscription_id 
+group by s.contract_type
+order by churn_percentage desc;
+
+
+"""
+Business Problem: Company un customers ko identify karna chahti hai jinki subscriptions mein 5 se zyada failed payments hui hain, taaki unhe proactively support diya ja sake.
+
+Output mein ye columns chahiye:
+- customer_id
+- customer_name
+- failed_payments
+- total_failed_amount
+
+"""
+
+select 
+    c.customer_id ,
+    c.customer_name ,
+    count(
+        case 
+            when p.payment_status = "Failed"
+            then 1 
+            end
+    ) as total_failed_payments ,
+
+    sum(
+        case when p.payment_status = "Failed"
+        then p.payment_amount 
+        else 0 
+        end
+    ) as failed_payment_amount 
+
+from customers c 
+    join customer_accounts a 
+on c.customer_id = a.customer_id 
+    join subscriptions s 
+on s.account_id = a.account_id 
+    join payments p 
+on p.subscription_id = s.subscription_id 
+group by c.customer_id , c.customer_name 
+HAVING COUNT(
+    CASE
+        WHEN p.payment_status = 'Failed' THEN 1
+    END
+) > 5
+order by failed_payment_amount desc;
+
+"""
+🎯 Q4/5 — Churn vs Retained Customers: Revenue Comparison
+Business Problem: Company compare karna chahti hai ki churned aur currently active subscriptions ki average monthly charges kitni hain.
+
+Output:
+- customer_category — Churned ya Retained
+- total_subscriptions
+- average_monthly_charges
+- total_monthly_charges
+
+"""
+
+select 
+        CASE
+            WHEN 
+            ce.subscription_id IS NOT NULL THEN 'Churned'
+        ELSE 'Retained'
+        END as customer_category ,
+    
+    count(*) as total_subscriptions ,
+
+    avg(s.monthly_charges) as average_monthly_charges,
+    sum(s.monthly_charges) as total_monthly_charges
+from subscriptions s
+    left join churn_events ce
+on s.subscription_id = ce.subscription_id 
+group by  CASE
+            WHEN 
+            ce.subscription_id IS NOT NULL THEN 'Churned'
+        ELSE 'Retained'
+        END
+
+
+
+"""
+🎯 Q5/5 — Aaj ka last question
+Business Problem: Har churn reason ke liye company ko dekhna hai ki churn hui subscriptions ka average monthly charge kitna tha aur total monthly revenue impact kitna tha.
+
+Output:
+- leaving_reason
+- churned_subscriptions
+- average_monthly_charges
+- total_lost_monthly_revenue
+
+"""
+
+select 
+	ce.leaving_reason,
+    count(ce.subscription_id) as churned_subscriptions ,
+    avg(s.monthly_charges) as average_monthly_charges ,
+    sum(
+		case 
+			when ce.subscription_id is not null 
+            then s.monthly_charges
+				end
+    ) as total_lost_monthly_charges
+from  subscriptions s 
+	join churn_events ce
+on s.subscription_id = ce.subscription_id
+group by ce.leaving_reason
+order by total_lost_monthly_charges desc;
+
+"Day 7"
+
+
+"""
+🎯 Day 7 — Question 1/5
+Business Problem: High-Value Churned Customers
+Company identify karna chahti hai ki kaunse churned customers sabse zyada 
+monthly charges pay kar rahe the, taaki company samajh sake ki kin customers ko retain karna financially important tha.
+
+Output mein ye columns chahiye:
+Column	Meaning
+customer_id	Customer ki ID
+customer_name	Customer ka naam
+plan_type	Subscription plan
+monthly_charges	Monthly subscription charges
+leaving_reason	Customer ke churn hone ka reason
+"""
+
+select 
+	c.customer_id ,
+    c.customer_name ,
+    s.plan_type ,
+    s.monthly_charges ,
+    ce.leaving_reason
+from customers c 
+	join customer_accounts ca
+on c.customer_id = ca.customer_id 
+	join subscriptions s
+on ca.account_id = s.account_id 
+	join churn_events ce 
+on ce.subscription_id = s.subscription_id 
+group by 
+	c.customer_id , 
+    c.customer_name , 
+    s.plan_type , 
+    s.monthly_charges , 
+    ce.leaving_reason
+having s.monthly_charges > 800
+	order by s.monthly_charges desc;
+
+"""
+🎯 Day 7 — Question 2/5
+Business Problem: Retention Offers ka Success Rate
+Company check karna chahti hai ki har retention activity type ke kitne records ka status Still Active hai.
+
+Output columns:
+- activity_type
+- total_activities
+- still_active_count
+- still_active_percentage
+
+"""
+
+SELECT
+    activity_type,
+    COUNT(*) AS total_activities,
+   COUNT(
+    CASE
+        WHEN retention_status = 'Still_active' THEN 1
+    END
+) as still_active_count,
+    ROUND(
+COUNT(
+    CASE
+        WHEN retention_status = 'Still_active' THEN 1
+    END
+) * 100 / COUNT(*),
+        2
+    ) AS still_active_percentage
+FROM retention_activity
+GROUP BY activity_type
+ORDER BY still_active_percentage DESC;
+
+
+"""
+Q3. Customers with Multiple Retention Attempts
+Business question: Aise customers identify karo jinhe retention team ne 3 se zyada baar contact kiya hai.
+
+Required output:
+- customer_id
+- customer_name
+- total_retention_attempts
+
+"""
+
+select 
+	c.customer_id ,
+    c.customer_name,
+    count(ra.customer_id) as totol_retention_attempts 
+from customers c 
+	left join retention_activity ra 
+on c.customer_id = ra.customer_id 
+group by c.customer_id , c.customer_name
+having count(ra.customer_id) > 3 
+order by  totol_retention_attempts desc;
+
+
+"""
+Q4. Retention Offers vs Churn
+Business question: Identify karo ki kin retention activity types ke baad customers churn hue.
+
+Required output:
+- activity_type
+- total_activities
+- churned_count
+- churned_percentage
+"""
+
+SELECT
+    ra.activity_type,
+    COUNT(*) AS total_activity,
+    COUNT(
+        CASE
+            WHEN ce.churn_id IS NOT NULL THEN 1
+        END
+    ) AS churned_count,
+    ROUND(
+        COUNT(
+            CASE
+                WHEN ce.churn_id IS NOT NULL THEN 1
+            END
+        ) * 100.0 / COUNT(*),
+        2
+    ) AS churned_percentage
+FROM retention_activity ra
+LEFT JOIN churn_events ce
+    ON ra.subscription_id = ce.subscription_id
+GROUP BY ra.activity_type
+ORDER BY churned_percentage DESC;
+
+"""
+Q5. Retention Activity Analysis by Plan Type
+Business question: Identify karo ki Basic, Standard aur Premium plans mein kaunse plan par sabse zyada retention activities perform ki gayi hain.
+
+Required output:
+- plan_type
+- total_activities
+- unique_customers
+- churned_activities
+
+""" 
+
+select 
+	s.plan_type ,
+    count(ra.activity_type) as total_activities ,
+    count(distinct c.customer_id) as unique_customers ,
+    COUNT(CASE WHEN ce.churn_id IS NOT NULL THEN 1 END) as churned_activities 
+from customers c 
+	join customer_accounts ca 
+on c.customer_id = ca.customer_id
+	join subscriptions s 
+on ca.account_id = s.account_id 
+	left join churn_events ce
+on s.subscription_id  = ce.subscription_id 
+	join retention_activity ra 
+on ra.subscription_id = s.subscription_id
+group by s.plan_type
+ORDER BY total_activities DESC;
+
