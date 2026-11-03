@@ -949,3 +949,216 @@ on ra.subscription_id = s.subscription_id
 group by s.plan_type
 ORDER BY total_activities DESC;
 
+"""
+Day 8 — Q1/5: Customer Retention Risk Analysis
+Business Scenario:
+
+Company un customers ko identify karna chahti hai jinhone:
+- 3 se zyada support tickets raise kiye hain.
+- Unki subscription abhi bhi Active hai.
+- Unka monthly charge ₹800 se zyada hai.
+Required Output:
+1. customer_id
+2. customer_name
+3. plan_type
+4. monthly_charges
+5. total_tickets
+
+"""
+
+select 
+	c.customer_id,
+    c.customer_name,
+    s.plan_type,
+    s.monthly_charges ,
+    s.subscription_status,
+	count(st.ticket_id) as total_tickets 
+from customers c 
+	join customer_accounts ca
+on c.customer_id = ca.customer_id 
+	join subscriptions s 
+on s.account_id = ca.account_id 
+	join support_tickets st
+on c.customer_id = st.customer_id 
+	group by 
+    c.customer_id ,
+    c.customer_name , 
+    s.plan_type, 
+    s.monthly_charges, 
+    s.subscription_status
+having count(st.ticket_id) > 3  and s.monthly_charges > 800 and s.subscription_status = "Active"
+order by total_tickets desc ;
+
+"""
+Day 8 — Q2/5: Failed Payment & Churn Risk
+Business Scenario:
+
+Company un customers ko identify karna chahti hai jinke:
+- 2 ya usse zyada failed payments hain.
+- Total failed payment amount ₹1,000 se zyada hai.
+Required Output:
+1. customer_id
+2. customer_name
+3. failed_payment_count
+4. total_failed_amount
+
+"""
+
+select 
+    c.customer_id ,
+    c.customer_name ,
+    count(
+        case 
+            when p.payment_status = "Failed" 
+            then 1 
+            end
+        ) as failed_payment_count ,
+    sum(
+        case 
+            when p.payment_status = "Failed" 
+            then p.payment_amount 
+            else 0 
+            end
+        ) as total_failed_amount
+from customers c 
+    join customer_accounts ca
+on c.customer_id = ca.customer_id 
+	join subscriptions s 
+on s.account_id = ca.account_id 
+	join payments p 
+on s.subscription_id = p.subscription_id 
+group by 
+	c.customer_id ,
+    c.customer_name
+having    
+    count(
+            case 
+                when p.payment_status = "Failed" 
+                then 1 
+                end
+            ) >= 2 and 
+        sum(
+            case 
+                when p.payment_status = "Failed" 
+                then p.payment_amount 
+                else 0 
+                end
+            ) > 1000
+    order by total_failed_amount desc;
+
+
+
+"""
+Q3/5 — Monthly Revenue Trend
+Business Scenario:
+
+Company ko 2025 aur 2026 ke monthly successful payment revenue ka trend analyse karna hai.
+
+Required Output:
+1. payment_month — YYYY-MM format
+2. total_transactions
+3. total_revenue
+4. average_payment_amount
+
+"""
+SELECT 
+    DATE_FORMAT(payment_date, '%Y-%m') AS payment_month,
+    COUNT(*) AS total_transactions,
+    SUM(payment_amount) AS total_revenue,
+    AVG(payment_amount) AS average_payment_amount
+FROM payments
+WHERE payment_status = 'Successful'  AND (
+        YEAR(payment_date) = 2025
+        OR YEAR(payment_date) = 2026
+      )
+GROUP BY DATE_FORMAT(payment_date, '%Y-%m')
+ORDER BY DATE_FORMAT(payment_date, '%Y-%m') desc ;
+
+""" 
+Q4/5 — Churn Rate by Contract Type
+Business Scenario: Company identify karna chahti hai ki kis contract type mein churn rate sabse zyada hai.
+
+Required output:
+1. contract_type
+2. total_subscriptions
+3. churned_subscriptions
+4. churn_percentage
+
+"""
+SELECT
+	S.CONTRACT_TYPE ,
+    COUNT(DISTINCT S.SUBSCRIPTION_ID) AS TOTAL_SUBSCRIPTIONS,
+    COUNT(distinct CE.SUBSCRIPTION_ID) AS CHURNED_SUBSCRIPTIONS,
+    ROUND(COUNT(DISTINCT CE.SUBSCRIPTION_ID) * 100 / COUNT(DISTINCT S.SUBSCRIPTION_ID) ,2 )  AS CHURN_PERCENTAGE
+FROM SUBSCRIPTIONS S 
+	LEFT JOIN CHURN_EVENTS CE 
+ON CE.SUBSCRIPTION_ID = S.SUBSCRIPTION_ID 
+	GROUP BY S.CONTRACT_TYPE
+ORDER BY CHURN_PERCENTAGE DESC ;
+
+"""
+Q5/5 — Final Question: Revenue Contribution by Subscription Plan
+Business Scenario:
+
+Company jaana chahti hai ki Basic, Standard aur Premium plans mein se kaunsa plan successful payments ke through sabse zyada revenue generate kar raha hai.
+
+Required Output:
+1. plan_type
+2. total_customers
+3. successful_transactions
+4. total_revenue
+5. revenue_percentage
+
+"""
+
+SELECT
+    s.plan_type,
+
+    COUNT(DISTINCT c.customer_id) AS total_customers,
+
+    COUNT(
+        CASE
+            WHEN p.payment_status = 'Successful'
+            THEN 1
+        END
+    ) AS successful_transactions,
+
+    SUM(
+        CASE
+            WHEN p.payment_status = 'Successful'
+            THEN p.payment_amount
+            ELSE 0
+        END
+    ) AS total_revenue,
+
+    ROUND(
+        SUM(
+            CASE
+                WHEN p.payment_status = 'Successful'
+                THEN p.payment_amount
+                ELSE 0
+            END
+        ) * 100.0 /
+
+        (
+            SELECT SUM(payment_amount)
+            FROM payments
+            WHERE payment_status = 'Successful'
+        ),
+        2
+    ) AS revenue_percentage
+
+FROM customers c
+
+JOIN customer_accounts ca
+    ON c.customer_id = ca.customer_id
+
+JOIN subscriptions s
+    ON ca.account_id = s.account_id
+
+JOIN payments p
+    ON p.subscription_id = s.subscription_id
+
+GROUP BY s.plan_type
+
+ORDER BY total_revenue DESC;

@@ -414,3 +414,140 @@ on s.subscription_id  = ce.subscription_id
 on ra.subscription_id = s.subscription_id
 group by s.plan_type
 ORDER BY total_activities DESC;
+
+select 
+	c.customer_id,
+    c.customer_name,
+    s.plan_type,
+    s.monthly_charges ,
+    s.subscription_status,
+	count(st.ticket_id) as total_tickets 
+from customers c 
+	join customer_accounts ca
+on c.customer_id = ca.customer_id 
+	join subscriptions s 
+on s.account_id = ca.account_id 
+	join support_tickets st
+on c.customer_id = st.customer_id 
+	group by c.customer_id ,c.customer_name , s.plan_type, s.monthly_charges, s.subscription_status
+having count(st.ticket_id) > 3  and s.monthly_charges > 800 and s.subscription_status = "Active"
+order by total_tickets desc ;
+
+select 
+    c.customer_id ,
+    c.customer_name ,
+    count(
+        case 
+            when p.payment_status = "Failed" 
+            then 1 
+            end
+        ) as failed_payment_count ,
+    sum(
+        case 
+            when p.payment_status = "Failed" 
+            then p.payment_amount 
+            else 0 
+            end
+        ) as total_failed_amount
+from customers c 
+    join customer_accounts ca
+on c.customer_id = ca.customer_id 
+	join subscriptions s 
+on s.account_id = ca.account_id 
+	join payments p 
+on s.subscription_id = p.subscription_id 
+group by 
+	c.customer_id ,
+    c.customer_name
+having    
+ count(
+        case 
+            when p.payment_status = "Failed" 
+            then 1 
+            end
+        ) >= 2 and 
+    sum(
+        case 
+            when p.payment_status = "Failed" 
+            then p.payment_amount 
+            else 0 
+            end
+        ) > 1000
+	order by total_failed_amount desc;
+    
+SELECT 
+    DATE_FORMAT(payment_date, '%Y-%m') AS payment_month,
+    COUNT(*) AS total_transactions,
+    SUM(payment_amount) AS total_revenue,
+    AVG(payment_amount) AS average_payment_amount
+FROM payments
+WHERE payment_status = 'Successful'  AND (
+        YEAR(payment_date) = 2025
+        OR YEAR(payment_date) = 2026
+      )
+GROUP BY DATE_FORMAT(payment_date, '%Y-%m')
+ORDER BY DATE_FORMAT(payment_date, '%Y-%m') desc ; 
+
+SELECT
+	S.CONTRACT_TYPE ,
+    COUNT(DISTINCT S.SUBSCRIPTION_ID) AS TOTAL_SUBSCRIPTIONS,
+    COUNT(distinct CE.SUBSCRIPTION_ID) AS CHURNED_SUBSCRIPTIONS,
+    ROUND(COUNT(DISTINCT CE.SUBSCRIPTION_ID) * 100 / COUNT(DISTINCT S.SUBSCRIPTION_ID) ,2 )  AS CHURN_PERCENTAGE
+FROM SUBSCRIPTIONS S 
+	LEFT JOIN CHURN_EVENTS CE 
+ON CE.SUBSCRIPTION_ID = S.SUBSCRIPTION_ID 
+	GROUP BY S.CONTRACT_TYPE
+ORDER BY CHURN_PERCENTAGE DESC ;
+
+
+SELECT
+    s.plan_type,
+
+    COUNT(DISTINCT c.customer_id) AS total_customers,
+
+    COUNT(
+        CASE
+            WHEN p.payment_status = 'Successful'
+            THEN 1
+        END
+    ) AS successful_transactions,
+
+    SUM(
+        CASE
+            WHEN p.payment_status = 'Successful'
+            THEN p.payment_amount
+            ELSE 0
+        END
+    ) AS total_revenue,
+
+    ROUND(
+        SUM(
+            CASE
+                WHEN p.payment_status = 'Successful'
+                THEN p.payment_amount
+                ELSE 0
+            END
+        ) * 100.0 /
+
+        (
+            SELECT SUM(payment_amount)
+            FROM payments
+            WHERE payment_status = 'Successful'
+        ),
+        2
+    ) AS revenue_percentage
+
+FROM customers c
+
+JOIN customer_accounts ca
+    ON c.customer_id = ca.customer_id
+
+JOIN subscriptions s
+    ON ca.account_id = s.account_id
+
+JOIN payments p
+    ON p.subscription_id = s.subscription_id
+
+GROUP BY s.plan_type
+
+ORDER BY total_revenue DESC;
