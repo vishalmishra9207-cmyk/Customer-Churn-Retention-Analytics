@@ -1162,3 +1162,180 @@ JOIN payments p
 GROUP BY s.plan_type
 
 ORDER BY total_revenue DESC;
+
+
+"""
+Day 9 — Q1/5: Customer Lifetime Revenue Analysis
+Business Scenario:
+
+Company identify karna chahti hai ki kaunse customers ne ab tak sabse zyada successful payment revenue generate kiya hai.
+
+Required Output:
+1. customer_id
+2. customer_name
+3. total_successful_payments
+4. total_revenue
+5. average_payment_amount
+
+"""
+select 
+	c.customer_id ,
+    c.customer_name ,
+    count(
+		case 
+			when p.payment_status = "Successful"
+            then 1 
+            end
+    ) as total_successful_payments ,
+    sum(
+		case
+			when p.payment_status = "Successful"
+            then p.payment_amount
+            end
+    ) as total_revenue ,
+    round (avg
+		(case 
+			when p.payment_status = "Successful"
+            then p.payment_amount
+            end
+    ),2) as average_payment_amount
+	from customers c 
+join customer_accounts ca 
+	on c.customer_id = ca.customer_id 
+join subscriptions s 
+	on ca.account_id = s.account_id 
+join payments p 
+	on p.subscription_id = s.subscription_id
+group by 
+	c.customer_id ,
+    c.customer_name
+having 
+    sum(
+		case
+			when p.payment_status = "Successful"
+            then p.payment_amount
+            end
+    ) > 10000 
+order by total_revenue desc ;
+
+"""
+Day 9 — Q2/5: Customer Service Dependency Analysis
+Business problem: Kya zyada support tickets raise karne wale customers ka churn risk zyada hai?
+
+Find customers who:
+- Have raised at least 5 support tickets.
+- Have an Active subscription.
+- Show whether they have churned in the past.
+Output:
+- customer_id
+- customer_name
+- total_tickets
+- subscription_status
+- churn_status
+"""
+
+SELECT
+    c.customer_id,
+    c.customer_name,
+    COUNT(DISTINCT st.ticket_id) AS total_tickets,
+    s.subscription_status,
+    CASE
+        WHEN MAX(
+            CASE
+                WHEN ce.subscription_id IS NOT NULL THEN 1
+                ELSE 0
+            END
+        ) = 1 THEN 'Churned'
+        ELSE 'Not Churned'
+    END AS churn_status
+
+FROM customers c
+
+JOIN customer_accounts ca
+    ON c.customer_id = ca.customer_id
+
+JOIN subscriptions s
+    ON ca.account_id = s.account_id
+
+JOIN support_tickets st
+    ON c.customer_id = st.customer_id
+
+LEFT JOIN churn_events ce
+    ON s.subscription_id = ce.subscription_id
+
+WHERE s.subscription_status = 'Active'
+
+GROUP BY
+    c.customer_id,
+    c.customer_name,
+    s.subscription_id,
+    s.subscription_status
+
+HAVING COUNT(DISTINCT st.ticket_id) >= 5
+
+ORDER BY total_tickets DESC;
+
+"""
+Day 9 — Q3/5
+Customer Revenue vs Subscription Cost Analysis
+
+find customers whose total successful payment revenue is less than their total expected annual subscription charges.
+
+Output columns:
+1. customer_id
+2. customer_name
+3. total_monthly_charges
+4. expected_annual_charges
+5. total_successful_revenue
+6. revenue_gap
+
+"""
+WITH SUBSCRIPTION_ANALYSIS AS
+(
+    SELECT
+        CA.CUSTOMER_ID,
+        SUM(S.MONTHLY_CHARGES) AS TOTAL_MONTHLY_CHARGES
+    FROM CUSTOMER_ACCOUNTS CA
+    JOIN SUBSCRIPTIONS S
+        ON CA.ACCOUNT_ID = S.ACCOUNT_ID
+    GROUP BY CA.CUSTOMER_ID
+),
+
+PAYMENT_ANALYSIS AS
+(
+    SELECT
+        CA.CUSTOMER_ID,
+        SUM(
+            CASE
+                WHEN P.PAYMENT_STATUS = 'Successful'
+                THEN P.PAYMENT_AMOUNT
+                ELSE 0
+            END
+        ) AS TOTAL_SUCCESSFUL_REVENUE
+    FROM CUSTOMER_ACCOUNTS CA
+    JOIN SUBSCRIPTIONS S
+        ON CA.ACCOUNT_ID = S.ACCOUNT_ID
+    JOIN PAYMENTS P
+        ON S.SUBSCRIPTION_ID = P.SUBSCRIPTION_ID
+    GROUP BY CA.CUSTOMER_ID
+)
+
+SELECT
+    C.CUSTOMER_ID,
+    C.CUSTOMER_NAME,
+    SA.TOTAL_MONTHLY_CHARGES,
+    SA.TOTAL_MONTHLY_CHARGES * 12 AS EXPECTED_ANNUAL_CHARGES,
+    PA.TOTAL_SUCCESSFUL_REVENUE,
+    (SA.TOTAL_MONTHLY_CHARGES * 12 - PA.TOTAL_SUCCESSFUL_REVENUE) AS REVENUE_GAP
+
+FROM CUSTOMERS C
+
+JOIN SUBSCRIPTION_ANALYSIS SA
+    ON C.CUSTOMER_ID = SA.CUSTOMER_ID
+
+JOIN PAYMENT_ANALYSIS PA
+    ON C.CUSTOMER_ID = PA.CUSTOMER_ID
+
+WHERE PA.TOTAL_SUCCESSFUL_REVENUE < SA.TOTAL_MONTHLY_CHARGES * 12
+
+ORDER BY REVENUE_GAP DESC;
