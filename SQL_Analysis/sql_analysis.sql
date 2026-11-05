@@ -1339,3 +1339,90 @@ JOIN PAYMENT_ANALYSIS PA
 WHERE PA.TOTAL_SUCCESSFUL_REVENUE < SA.TOTAL_MONTHLY_CHARGES * 12
 
 ORDER BY REVENUE_GAP DESC;
+
+"""
+Day 9 — Q4/5: Customer Retention Effectiveness Analysis
+Business problem: Company jaana chahti hai ki retention offers accept karne wale customers kitne time tak active rahe.
+
+Find the retention success percentage for each activity_type.
+
+Output columns:
+1. activity_type
+2. total_customers
+3. retained_customers
+4. churned_customers
+5. retention_success_rate
+
+"""
+
+select 
+	activity_type ,
+    count(distinct customer_id)  as total_customers,
+    count(
+		distinct case 
+				when 
+					retention_status != "Churned"
+					then customer_id
+					end
+		) as retained_customers ,
+    count(
+		distinct case  
+				when retention_status = "Churned"
+				then customer_id
+				end
+    ) as churned_customers ,
+    round(
+        count(
+		distinct case 
+			when 
+				retention_status != "Churned"
+                then customer_id 
+                end
+    ) * 100 /  count(distinct customer_id) , 2
+    ) as rentention_success_rate
+from retention_activity
+group by activity_type ;
+
+"""
+Day 9 — Q5/5: Latest Customer Subscription Analysis
+Business problem: Company ko har customer ki latest subscription ka status aur plan identify karna hai.
+
+Task: Har customer ki latest subscription record find karo.
+
+Output columns:
+1. customer_id
+2. customer_name
+3. subscription_id
+4. plan_type
+5. subscription_status
+6. monthly_charges
+
+"""
+
+with subscription_analysis as 
+	(
+    select 
+		c.customer_id ,
+		c.customer_name,
+		s.subscription_id,
+        s.plan_type,
+        s.subscription_status ,
+        s.monthly_charges ,
+        row_number() over(
+        partition by c.customer_id order by s.start_date desc , subscription_id desc
+        ) as  rn
+        from customers c 
+			join customer_accounts ca 
+		on c.customer_id = ca.customer_id 
+			join subscriptions s 
+				on s.account_id = ca.account_id
+        )
+	select 
+		customer_id,
+        customer_name , 
+        subscription_id ,
+        plan_type,
+        subscription_status,
+        monthly_charges 
+	from subscription_analysis 
+		where rn = 1 ;

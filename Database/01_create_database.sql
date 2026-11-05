@@ -879,5 +879,8 @@ select * from retention_activity;
 select * from payments ;
 
 DESCRIBE churn_events;
+
 select * from churn_events;
 select * from subscriptions ;
+select * from customer_accounts;
+select * from retention_activity;

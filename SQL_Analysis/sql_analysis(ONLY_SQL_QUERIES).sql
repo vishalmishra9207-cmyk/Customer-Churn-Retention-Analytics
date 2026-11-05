@@ -682,3 +682,60 @@ JOIN PAYMENT_ANALYSIS PA
 WHERE PA.TOTAL_SUCCESSFUL_REVENUE < SA.TOTAL_MONTHLY_CHARGES * 12
 
 ORDER BY REVENUE_GAP DESC;
+
+select 
+	activity_type ,
+    count(distinct customer_id)  as total_customers,
+    count(
+		distinct case 
+				when 
+					retention_status != "Churned"
+					then customer_id
+					end
+		) as retained_customers ,
+    count(
+		distinct case  
+				when retention_status = "Churned"
+				then customer_id
+				end
+    ) as churned_customers ,
+    round(
+        count(
+		distinct case 
+			when 
+				retention_status != "Churned"
+                then customer_id 
+                end
+    ) * 100 /  count(distinct customer_id) , 2
+    ) as rentention_success_rate
+from retention_activity
+group by activity_type ;
+
+with subscription_analysis as 
+	(
+    select 
+		c.customer_id ,
+		c.customer_name,
+		s.subscription_id,
+        s.plan_type,
+        s.subscription_status ,
+        s.monthly_charges ,
+        row_number() over(
+        partition by c.customer_id order by s.start_date desc , subscription_id desc
+        ) as  rn
+        from customers c 
+			join customer_accounts ca 
+		on c.customer_id = ca.customer_id 
+			join subscriptions s 
+				on s.account_id = ca.account_id
+        )
+	select 
+		customer_id,
+        customer_name , 
+        subscription_id ,
+        plan_type,
+        subscription_status,
+        monthly_charges 
+	from subscription_analysis 
+		where rn = 1 ;
+	
