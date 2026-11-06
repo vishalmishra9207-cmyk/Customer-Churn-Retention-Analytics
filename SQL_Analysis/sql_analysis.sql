@@ -1426,3 +1426,77 @@ with subscription_analysis as
         monthly_charges 
 	from subscription_analysis 
 		where rn = 1 ;
+
+
+"""
+Day 10 — Q1/5: Churned Customer Tenure Analysis
+Business problem: Company jaana chahti hai ki customers average kitne din subscription use karne ke baad churn karte hain, 
+aur kaunse plan ke customers sabse jaldi leave karte hain.
+
+Task: Plan-wise churned subscriptions ka tenure calculate karo.
+
+Output columns:
+1. plan_type
+2. total_churned_subscriptions
+3. average_tenure_days
+4. minimum_tenure_days
+5. maximum_tenure_days
+
+"""
+
+SELECT
+    s.plan_type,
+    COUNT(DISTINCT ce.subscription_id) AS total_churned_subscriptions,
+    MIN(DATEDIFF(ce.churn_date, s.start_date)) AS minimum_tenure_days,
+    MAX(DATEDIFF(ce.churn_date, s.start_date)) AS maximum_tenure_days,
+    ROUND(AVG(DATEDIFF(ce.churn_date, s.start_date)), 2) AS average_tenure_days
+
+FROM subscriptions s
+
+JOIN churn_events ce
+    ON s.subscription_id = ce.subscription_id
+
+GROUP BY s.plan_type
+
+ORDER BY average_tenure_days ASC;
+
+"""
+Day 10 — Q2/5
+Business Problem: Top Churn Reasons by Subscription Plan
+Company management wants to understand why customers are leaving each subscription plan.
+
+Your task: Find the top 3 churn reasons for each plan.
+
+Expected output:
+Column	Meaning
+plan_type	Basic / Standard / Premium
+leaving_reason	Reason for churn
+churned_subscriptions	Number of churned subscriptions
+reason_rank	Rank of each reason within its plan
+
+"""
+
+WITH churned_reason AS (
+    SELECT
+        s.plan_type,
+        ce.leaving_reason,
+        COUNT(DISTINCT ce.subscription_id) AS total_churned_subscriptions,
+        DENSE_RANK() OVER (
+            PARTITION BY s.plan_type
+            ORDER BY COUNT(DISTINCT ce.subscription_id) DESC
+        ) AS reason_rank
+    FROM subscriptions s
+    JOIN churn_events ce
+        ON ce.subscription_id = s.subscription_id
+    GROUP BY
+        s.plan_type,
+        ce.leaving_reason
+)
+SELECT
+    plan_type,
+    leaving_reason,
+    total_churned_subscriptions,
+    reason_rank
+FROM churned_reason
+WHERE reason_rank <= 3
+ORDER BY plan_type, reason_rank ASC;

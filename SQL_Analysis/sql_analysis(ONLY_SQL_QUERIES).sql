@@ -739,3 +739,40 @@ with subscription_analysis as
 	from subscription_analysis 
 		where rn = 1 ;
 	
+    
+SELECT
+    s.plan_type,
+    COUNT(DISTINCT ce.subscription_id) AS total_churned_subscriptions,
+    MIN(DATEDIFF(ce.churn_date, s.start_date)) AS minimum_tenure_days,
+    MAX(DATEDIFF(ce.churn_date, s.start_date)) AS maximum_tenure_days,
+    ROUND(AVG(DATEDIFF(ce.churn_date, s.start_date)), 2) AS average_tenure_days
+
+FROM subscriptions s
+
+JOIN churn_events ce
+    ON s.subscription_id = ce.subscription_id
+
+GROUP BY s.plan_type
+
+ORDER BY average_tenure_days ASC;
+
+with churned_reason as (
+	select 
+		s.plan_type,
+		ce.leaving_reason, 
+		count(distinct ce.subscription_id) as total_churned_subscriptions,
+		dense_rank() over(partition by plan_type order by count(distinct ce.subscription_id) desc) as reason_rank
+	from subscriptions s 
+		join churn_events  ce
+	on ce.subscription_id = s.subscription_id 
+	group by 
+		s.plan_type ,
+		ce.leaving_reason )
+        
+select	
+	plan_type ,
+    leaving_reason ,
+    total_churned_subscriptions,
+    reason_rank
+from churned_reason where reason_rank <= 3
+order by plan_type , reason_rank ASC  ;
