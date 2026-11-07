@@ -1500,3 +1500,170 @@ SELECT
 FROM churned_reason
 WHERE reason_rank <= 3
 ORDER BY plan_type, reason_rank ASC;
+
+"""
+🔥 Day 10 — Q3/5
+Business Problem: Customer Revenue Segmentation
+Company management wants to identify customers based on their total successful payment revenue.
+
+Your task: Calculate each customer's lifetime successful revenue and classify them into three segments.
+Revenue	Segment
+0–10,000	Low Value
+10,001–50,000	Medium Value
+Above 50,000	High Value
+
+Expected output:
+- customer_id
+- customer_name
+- total_successful_revenue
+- revenue_segment
+
+"""
+WITH customer_revenue_segment AS (
+    SELECT
+        c.customer_id,
+        c.customer_name,
+        SUM(
+            CASE
+                WHEN p.payment_status = 'Successful'
+                THEN p.payment_amount
+                ELSE 0
+            END
+        ) AS total_successful_revenue
+    FROM customers c
+    JOIN customer_accounts ca
+        ON c.customer_id = ca.customer_id
+    JOIN subscriptions s
+        ON ca.account_id = s.account_id
+    JOIN payments p
+        ON s.subscription_id = p.subscription_id
+    GROUP BY c.customer_id, c.customer_name
+)
+SELECT
+    customer_id,
+    customer_name,
+    total_successful_revenue,
+    CASE
+        WHEN total_successful_revenue <= 10000 THEN 'Low Value'
+        WHEN total_successful_revenue <= 50000 THEN 'Medium Value'
+        ELSE 'High Value'
+    END AS revenue_segment
+FROM customer_revenue_segment ORDER BY total_successful_revenue desc ;
+
+"""
+Day 10 — Q4/5
+Business Problem: Monthly Customer Payment Consistency
+Company management wants to identify customers who have made successful payments consistently over the last 6 months.
+
+Your task: Find customer-wise monthly successful payment activity.
+
+Expected output:
+customer_id	
+customer_name	
+total_successful_payments	
+active_payment_months   
+"""
+
+with monthly_payment_consistency as (
+	select 
+		c.customer_id,
+        c.customer_name,
+        sum(
+			case 
+				when p.payment_status = "Successful"
+                then p.payment_amount 
+                else 0 
+			end 
+        ) as total_successful_payments ,
+        COUNT(DISTINCT
+			CASE
+				WHEN p.payment_status = 'Successful'
+				THEN DATE_FORMAT(p.payment_date, '%Y-%m')
+			END
+		) AS active_payment_months 
+	from customers c 
+		join customer_accounts ca 
+	on c.customer_id= ca.customer_id 
+		join subscriptions s 
+	on s.account_id = ca.account_id 
+		join payments p 
+	on p.subscription_id = s.subscription_id
+    WHERE p.payment_date >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
+  AND p.payment_date < CURDATE() + INTERVAL 1 DAY 
+		group by c.customer_id , c.customer_name
+        having  
+        COUNT(DISTINCT
+			CASE
+				WHEN p.payment_status = 'Successful'
+				THEN DATE_FORMAT(p.payment_date, '%Y-%m')
+			END
+		) >= 4 
+) 
+select * from monthly_payment_consistency  order by active_payment_months desc;
+
+
+
+"""
+Day 10 — Q5/5 (Final Question)
+Business Problem: Customer Churn Risk Identification
+Company management wants to identify customers who are showing signs of churn risk based on their payment behaviour.
+
+Your task: Identify customers who meet BOTH conditions:
+1. At least 3 failed payments in the last 6 months.
+2. At least 2 successful payments in the last 6 months.
+Expected output:
+Column	Meaning
+customer_id	Customer ID
+customer_name	Customer name
+failed_payments	Total failed transactions
+successful_payments	Total successful transactions
+risk_category	High Churn Risk
+
+Conditions:
+- Use customers, customer_accounts, subscriptions, payments.
+- Consider only the last 6 months.
+- Group results customer-wise.
+- Show only customers meeting both conditions.
+
+"""
+
+with churn_risk_customers as (
+	select 
+		c.customer_id,
+        c.customer_name,
+        count(
+			case 
+				when p.payment_status = "Failed"
+                then 1 
+                end
+        ) as total_failed_transactions,
+		count(
+			case
+				when p.payment_status = "Successful"
+                then 1 
+                end 
+        ) as total_successful_transactions
+        from customers c 
+			join customer_accounts ca 
+		on c.customer_id = ca.customer_id
+			join subscriptions s 
+		on s.account_id = ca.account_id
+			join payments  p 
+		on p.subscription_id = s.subscription_id
+         WHERE p.payment_date >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
+  AND p.payment_date < CURDATE() + INTERVAL 1 DAY  
+        group by c.customer_id , c.customer_name
+        having 
+			count((case when p.payment_status = "Failed" then 1 end)) >=3
+        and
+			count(case when p.payment_status = "Successful" then 1 end) >= 2 
+)
+
+SELECT
+    customer_id,
+    customer_name,
+    total_failed_transactions,
+    total_successful_transactions,
+    'High Churn Risk' AS risk_category
+FROM churn_risk_customers;
+    ;

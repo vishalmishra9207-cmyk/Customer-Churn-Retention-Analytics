@@ -776,3 +776,113 @@ select
     reason_rank
 from churned_reason where reason_rank <= 3
 order by plan_type , reason_rank ASC  ;
+
+WITH customer_revenue_segment AS (
+    SELECT
+        c.customer_id,
+        c.customer_name,
+        SUM(
+            CASE
+                WHEN p.payment_status = 'Successful'
+                THEN p.payment_amount
+                ELSE 0
+            END
+        ) AS total_successful_revenue
+    FROM customers c
+    JOIN customer_accounts ca
+        ON c.customer_id = ca.customer_id
+    JOIN subscriptions s
+        ON ca.account_id = s.account_id
+    JOIN payments p
+        ON s.subscription_id = p.subscription_id
+    GROUP BY c.customer_id, c.customer_name
+)
+SELECT
+    customer_id,
+    customer_name,
+    total_successful_revenue,
+    CASE
+        WHEN total_successful_revenue <= 10000 THEN 'Low Value'
+        WHEN total_successful_revenue <= 50000 THEN 'Medium Value'
+        ELSE 'High Value'
+    END AS revenue_segment
+FROM customer_revenue_segment ORDER BY total_successful_revenue desc ;
+
+
+with monthly_payment_consistency as (
+	select 
+		c.customer_id,
+        c.customer_name,
+        sum(
+			case 
+				when p.payment_status = "Successful"
+                then p.payment_amount 
+                else 0 
+			end 
+        ) as total_successful_payments ,
+        COUNT(DISTINCT
+			CASE
+				WHEN p.payment_status = 'Successful'
+				THEN DATE_FORMAT(p.payment_date, '%Y-%m')
+			END
+		) AS active_payment_months 
+	from customers c 
+		join customer_accounts ca 
+	on c.customer_id= ca.customer_id 
+		join subscriptions s 
+	on s.account_id = ca.account_id 
+		join payments p 
+	on p.subscription_id = s.subscription_id
+    WHERE p.payment_date >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
+  AND p.payment_date < CURDATE() + INTERVAL 1 DAY 
+		group by c.customer_id , c.customer_name
+        having  
+        COUNT(DISTINCT
+			CASE
+				WHEN p.payment_status = 'Successful'
+				THEN DATE_FORMAT(p.payment_date, '%Y-%m')
+			END
+		) >= 4 
+) 
+select * from monthly_payment_consistency  order by active_payment_months desc;
+
+with churn_risk_customers as (
+	select 
+		c.customer_id,
+        c.customer_name,
+        count(
+			case 
+				when p.payment_status = "Failed"
+                then 1 
+                end
+        ) as total_failed_transactions,
+		count(
+			case
+				when p.payment_status = "Successful"
+                then 1 
+                end 
+        ) as total_successful_transactions
+        from customers c 
+			join customer_accounts ca 
+		on c.customer_id = ca.customer_id
+			join subscriptions s 
+		on s.account_id = ca.account_id
+			join payments  p 
+		on p.subscription_id = s.subscription_id
+         WHERE p.payment_date >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
+  AND p.payment_date < CURDATE() + INTERVAL 1 DAY  
+        group by c.customer_id , c.customer_name
+        having 
+			count((case when p.payment_status = "Failed" then 1 end)) >=3
+        and
+			count(case when p.payment_status = "Successful" then 1 end) >= 2 
+)
+
+SELECT
+    customer_id,
+    customer_name,
+    total_failed_transactions,
+    total_successful_transactions,
+    'High Churn Risk' AS risk_category
+FROM churn_risk_customers;
+    ;
