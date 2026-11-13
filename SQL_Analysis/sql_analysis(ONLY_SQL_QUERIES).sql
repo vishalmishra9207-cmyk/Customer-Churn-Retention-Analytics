@@ -885,4 +885,81 @@ SELECT
     total_successful_transactions,
     'High Churn Risk' AS risk_category
 FROM churn_risk_customers;
-    ;
+
+
+
+WITH revenue_genererate_customers AS (
+    SELECT
+        c.customer_id,
+        c.customer_name,
+        s.plan_type,
+        SUM(
+            CASE
+                WHEN p.payment_status = 'Successful'
+                THEN p.payment_amount
+                ELSE 0
+            END
+        ) AS total_successful_payment_revenue,
+
+        DENSE_RANK() OVER (
+            PARTITION BY s.plan_type
+            ORDER BY SUM(
+                CASE
+                    WHEN p.payment_status = 'Successful'
+                    THEN p.payment_amount
+                    ELSE 0
+                END
+            ) DESC
+        ) AS revenue_rank
+
+    FROM customers c
+    JOIN customer_accounts ca
+        ON c.customer_id = ca.customer_id
+    JOIN subscriptions s
+        ON s.account_id = ca.account_id
+    JOIN payments p
+        ON p.subscription_id = s.subscription_id
+
+    GROUP BY
+        c.customer_id,
+        c.customer_name,
+        s.plan_type
+)
+
+SELECT *
+FROM revenue_genererate_customers
+WHERE revenue_rank <= 3;
+
+
+with customer_life_cycle as (
+	select 
+		c.customer_id,
+        c.customer_name,
+        s.plan_type,
+        sum(
+			case 
+				when p.payment_status = "Successful"
+                then p.payment_amount
+                else 0
+                end
+        ) as total_successful_payment_revenue ,
+        min(p.payment_date) as first_payment_date ,
+        max(p.payment_date) as last_payment_date,
+        datediff(max(p.payment_date) , min(p.payment_date)) as customer_life_time
+        
+        from customers c 
+			join customer_accounts ca
+		on c.customer_id = ca.customer_id
+			join subscriptions s 
+		on s.account_id = ca.account_id 
+			join payments p 
+		on p.subscription_id = s.subscription_id
+        where p.payment_status = "Successful"
+        
+        group by 
+			c.customer_id ,
+            c.customer_name,
+            s.plan_type 
+)
+
+select * from  customer_life_cycle  order by customer_life_time desc;

@@ -1666,4 +1666,142 @@ SELECT
     total_successful_transactions,
     'High Churn Risk' AS risk_category
 FROM churn_risk_customers;
-    ;
+
+""""
+Question 1 — Top 3 Revenue Generating Customers by Plan
+Difficulty: Advanced
+Business Scenario:
+
+Company management jaana chahti hai ki har subscription plan (Basic, Standard, Premium) mein sabse zyada revenue generate karne wale top 3 customers kaun hain.
+
+Your task:
+
+Har plan ke liye:
+- Customer ID
+- Customer Name
+- Plan Type
+- Total Successful Payment Revenue
+- Revenue Rank
+Conditions:
+- Sirf Successful payments consider karne hain.
+- Har plan ke andar separately ranking honi chahiye.
+- Highest revenue wale customer ka rank 1 hona chahiye.
+- Sirf Top 3 ranks show karne hain.
+Tables involved:
+- customers
+- customer_accounts
+- subscriptions
+- payments
+
+""""
+
+
+WITH revenue_genererate_customers AS (
+    SELECT
+        c.customer_id,
+        c.customer_name,
+        s.plan_type,
+        SUM(
+            CASE
+                WHEN p.payment_status = 'Successful'
+                THEN p.payment_amount
+                ELSE 0
+            END
+        ) AS total_successful_payment_revenue,
+
+        DENSE_RANK() OVER (
+            PARTITION BY s.plan_type
+            ORDER BY SUM(
+                CASE
+                    WHEN p.payment_status = 'Successful'
+                    THEN p.payment_amount
+                    ELSE 0
+                END
+            ) DESC
+        ) AS revenue_rank
+
+    FROM customers c
+    JOIN customer_accounts ca
+        ON c.customer_id = ca.customer_id
+    JOIN subscriptions s
+        ON s.account_id = ca.account_id
+    JOIN payments p
+        ON p.subscription_id = s.subscription_id
+
+    GROUP BY
+        c.customer_id,
+        c.customer_name,
+        s.plan_type
+)
+
+SELECT *
+FROM revenue_genererate_customers
+WHERE revenue_rank <= 3;
+
+
+
+""""
+Question 2 — Customer Lifetime Revenue Analysis
+Difficulty: Advanced
+Business Scenario:
+
+Management identify karna chahti hai ki har subscription plan mein kaunse customers company ke liye sabse valuable hain.
+
+Your task:
+
+Har customer ke liye calculate karo:
+1. Customer ID
+2. Customer Name
+3. Plan Type
+4. Total Successful Payment Revenue
+5. First Payment Date
+6. Last Payment Date
+7. Customer Lifetime (days)
+Conditions:
+- Sirf Successful payments consider karne hain.
+- Customer ke multiple subscriptions ho sakte hain.
+- Har customer aur plan ka separate analysis hona chahiye.
+- Lifetime calculate karna hai:
+\[
+DATEDIFF(LastPaymentDate, FirstPaymentDate)
+\]
+
+"""
+
+
+
+WITH customer_life_cycle AS (
+    SELECT
+        c.customer_id,
+        c.customer_name,
+        s.plan_type,
+
+        SUM(p.payment_amount) AS total_successful_payment_revenue,
+
+        MIN(p.payment_date) AS first_payment_date,
+        MAX(p.payment_date) AS last_payment_date,
+
+        DATEDIFF(
+            MAX(p.payment_date),
+            MIN(p.payment_date)
+        ) AS customer_life_time
+
+    FROM customers c
+    JOIN customer_accounts ca
+        ON c.customer_id = ca.customer_id
+    JOIN subscriptions s
+        ON s.account_id = ca.account_id
+    JOIN payments p
+        ON p.subscription_id = s.subscription_id
+
+    WHERE p.payment_status = 'Successful'
+
+    GROUP BY
+        c.customer_id,
+        c.customer_name,
+        s.plan_type
+)
+
+SELECT *
+FROM customer_life_cycle
+ORDER BY customer_life_time DESC;
