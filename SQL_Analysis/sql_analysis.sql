@@ -1667,7 +1667,7 @@ SELECT
     'High Churn Risk' AS risk_category
 FROM churn_risk_customers;
 
-""""
+"""
 Question 1 — Top 3 Revenue Generating Customers by Plan
 Difficulty: Advanced
 Business Scenario:
@@ -1693,7 +1693,7 @@ Tables involved:
 - subscriptions
 - payments
 
-""""
+"""
 
 
 WITH revenue_genererate_customers AS (
@@ -1740,35 +1740,32 @@ WHERE revenue_rank <= 3;
 
 
 
-""""
-Question 2 — Customer Lifetime Revenue Analysis
-Difficulty: Advanced
-Business Scenario:
-
-Management identify karna chahti hai ki har subscription plan mein kaunse customers company ke liye sabse valuable hain.
-
-Your task:
-
-Har customer ke liye calculate karo:
-1. Customer ID
-2. Customer Name
-3. Plan Type
-4. Total Successful Payment Revenue
-5. First Payment Date
-6. Last Payment Date
-7. Customer Lifetime (days)
-Conditions:
-- Sirf Successful payments consider karne hain.
-- Customer ke multiple subscriptions ho sakte hain.
-- Har customer aur plan ka separate analysis hona chahiye.
-- Lifetime calculate karna hai:
-\[
-DATEDIFF(LastPaymentDate, FirstPaymentDate)
-\]
-
 """
+-- Question 2 — Customer Lifetime Revenue Analysis
+-- Difficulty: Advanced
+-- Business Scenario:
 
+-- Management identify karna chahti hai ki har subscription plan mein kaunse customers company ke liye sabse valuable hain.
 
+-- Your task:
+
+-- Har customer ke liye calculate karo:
+-- 1. Customer ID
+-- 2. Customer Name
+-- 3. Plan Type
+-- 4. Total Successful Payment Revenue
+-- 5. First Payment Date
+-- 6. Last Payment Date
+-- 7. Customer Lifetime (days)
+-- Conditions:
+-- - Sirf Successful payments consider karne hain.
+-- - Customer ke multiple subscriptions ho sakte hain.
+-- - Har customer aur plan ka separate analysis hona chahiye.
+-- - Lifetime calculate karna hai:
+-- \[
+-- DATEDIFF(LastPaymentDate, FirstPaymentDate)
+\]
+"""
 
 WITH customer_life_cycle AS (
     SELECT
@@ -1805,3 +1802,128 @@ WITH customer_life_cycle AS (
 SELECT *
 FROM customer_life_cycle
 ORDER BY customer_life_time DESC;
+
+
+"""
+-- 🔥 Day 11  Question 3: Cohort Analysis
+
+-- Is baar ek proper Data Analyst-level business problem solve karenge.
+-- Q3. Monthly Customer Cohort Retention Analysis
+-- Business scenario:
+
+-- Company jaana chahti hai ki jis month customers ne apni first subscription start ki, unmein se kitne customers subsequent months mein bhi successful payments kar rahe hain.
+
+-- Tera task:
+
+-- Ek SQL query likh jo ye columns return kare:
+-- Column	Meaning
+-- cohort_month	Customer ka first subscription month
+-- activity_month	Jis month successful payment hui
+-- month_number	Cohort ke baad kitne months beet chuke
+-- active_customers	Us month successful payment karne wale unique customers
+
+"""
+
+WITH customer_cohort AS (
+    SELECT
+        ca.customer_id,
+        DATE_FORMAT(MIN(s.start_date), '%Y-%m') AS cohort_month
+    FROM customer_accounts ca
+    JOIN subscriptions s
+        ON ca.account_id = s.account_id
+    GROUP BY ca.customer_id
+),
+
+customer_activity AS (
+    SELECT
+        ca.customer_id,
+        DATE_FORMAT(p.payment_date, '%Y-%m') AS activity_month
+    FROM customer_accounts ca
+    JOIN subscriptions s
+        ON ca.account_id = s.account_id
+    JOIN payments p
+        ON p.subscription_id = s.subscription_id
+    WHERE p.payment_status = 'Successful'
+    GROUP BY
+        ca.customer_id,
+        DATE_FORMAT(p.payment_date, '%Y-%m')
+),
+
+cohort_analysis AS (
+    SELECT
+        cc.customer_id,
+        cc.cohort_month,
+        act.activity_month,
+        TIMESTAMPDIFF(
+            MONTH,
+            STR_TO_DATE(CONCAT(cc.cohort_month, '-01'), '%Y-%m-%d'),
+            STR_TO_DATE(CONCAT(act.activity_month, '-01'), '%Y-%m-%d')
+        ) AS month_number
+    FROM customer_cohort cc
+    JOIN customer_activity act
+        ON cc.customer_id = act.customer_id
+)
+
+SELECT
+    cohort_month,
+    activity_month,
+    month_number,
+    COUNT(DISTINCT customer_id) AS active_customers
+FROM cohort_analysis
+GROUP BY
+    cohort_month,
+    activity_month,
+    month_number
+ORDER BY
+    cohort_month,
+    month_number;
+
+"""
+-- Q4. Revenue Leakage Analysis
+-- Business scenario:
+
+-- Company ko pata karna hai ki har subscription plan mein kitna revenue expected tha, lekin successful payments ke through kitna revenue actually collect hua.
+
+-- Tera output:
+-- Column	Meaning
+-- plan_type	Basic / Standard / Premium
+-- expected_revenue	Total expected subscription revenue
+-- collected_revenue	Successful payment revenue
+-- revenue_gap	Expected − Collected
+-- collection_rate %	Collected / Expected × 100
+
+-- Tables: subscriptions, payments
+
+-- Conditions:
+-- - Expected revenue = monthly_charges ka total.
+-- - Collected revenue = sirf Successful payments ka total.
+-- - Plan-wise result chahiye.
+-- - Revenue gap descending order mein sort karna hai.
+
+"""
+
+with revenue_leakage as (
+	select 
+		s.plan_type ,  
+        sum(p.payment_amount) as expected_revenue,
+        sum(
+			case 
+				when p.payment_status = "Successful"
+                then p.payment_amount
+                else 0
+                end 
+        ) as collected_revenue
+	from subscriptions s 
+		join payments p 
+	on s.subscription_id = p.subscription_id
+    where p.payment_status not in ("Refunded")
+    group by 
+    s.plan_type
+)
+select
+	plan_type ,
+    expected_revenue ,
+    collected_revenue,
+    (expected_revenue - collected_revenue) as revenue_gap,
+    round(collected_revenue * 100 / expected_revenue ,2 )as collection_rate
+from revenue_leakage ;

@@ -963,3 +963,85 @@ with customer_life_cycle as (
 )
 
 select * from  customer_life_cycle  order by customer_life_time desc;
+
+
+WITH customer_cohort AS (
+    SELECT
+        ca.customer_id,
+        DATE_FORMAT(MIN(s.start_date), '%Y-%m') AS cohort_month
+    FROM customer_accounts ca
+    JOIN subscriptions s
+        ON ca.account_id = s.account_id
+    GROUP BY ca.customer_id
+),
+
+customer_activity AS (
+    SELECT
+        ca.customer_id,
+        DATE_FORMAT(p.payment_date, '%Y-%m') AS activity_month
+    FROM customer_accounts ca
+    JOIN subscriptions s
+        ON ca.account_id = s.account_id
+    JOIN payments p
+        ON p.subscription_id = s.subscription_id
+    WHERE p.payment_status = 'Successful'
+    GROUP BY
+        ca.customer_id,
+        DATE_FORMAT(p.payment_date, '%Y-%m')
+),
+
+cohort_analysis AS (
+    SELECT
+        cc.customer_id,
+        cc.cohort_month,
+        act.activity_month,
+        TIMESTAMPDIFF(
+            MONTH,
+            STR_TO_DATE(CONCAT(cc.cohort_month, '-01'), '%Y-%m-%d'),
+            STR_TO_DATE(CONCAT(act.activity_month, '-01'), '%Y-%m-%d')
+        ) AS month_number
+    FROM customer_cohort cc
+    JOIN customer_activity act
+        ON cc.customer_id = act.customer_id
+)
+
+SELECT
+    cohort_month,
+    activity_month,
+    month_number,
+    COUNT(DISTINCT customer_id) AS active_customers
+FROM cohort_analysis
+GROUP BY
+    cohort_month,
+    activity_month,
+    month_number
+ORDER BY
+    cohort_month,
+    month_number;
+
+
+with revenue_leakage as (
+	select 
+		s.plan_type ,  
+        sum(p.payment_amount) as expected_revenue,
+        sum(
+			case 
+				when p.payment_status = "Successful"
+                then p.payment_amount
+                else 0
+                end 
+        ) as collected_revenue
+	from subscriptions s 
+		join payments p 
+	on s.subscription_id = p.subscription_id
+    where p.payment_status not in ("Refunded")
+    group by 
+    s.plan_type
+)
+select
+	plan_type ,
+    expected_revenue ,
+    collected_revenue,
+    (expected_revenue - collected_revenue) as revenue_gap,
+    round(collected_revenue * 100 / expected_revenue ,2 )as collection_rate
+from revenue_leakage ;
