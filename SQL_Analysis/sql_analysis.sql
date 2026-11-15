@@ -1927,3 +1927,160 @@ select
     (expected_revenue - collected_revenue) as revenue_gap,
     round(collected_revenue * 100 / expected_revenue ,2 )as collection_rate
 from revenue_leakage ;
+
+
+"""
+Day 12 – Advanced SQL Practice start karte hain.
+
+Kal humne Cohort Analysis aur Revenue Leakage complete kiya tha. Aaj bhi ek-ek question karenge, maximum 5.
+
+Aaj ka focus hoga naye business problems aur analytical thinking par — repeated questions nahi.
+Q1. Customer Plan Upgrade & Downgrade Analysis
+Business scenario:
+
+Company jaana chahti hai ki customers apne subscription plans upgrade kar rahe hain ya downgrade.
+
+Humein customer ke previous plan aur current plan ko compare karna hai.
+
+Required output:
+Column	Meaning
+customer_id	Customer ID
+previous_plan	Previous subscription plan
+current_plan	Latest subscription plan
+previous_charges	Previous monthly charges
+current_charges	Current monthly charges
+charge_difference	Charges ka difference
+plan_change	Upgrade / Downgrade / No Change
+
+"""
+
+WITH plan_history AS (
+
+    SELECT
+        c.customer_id,
+        s.subscription_id,
+        s.plan_type,
+        s.monthly_charges,
+        s.start_date,
+
+        LAG(s.plan_type) OVER (
+            PARTITION BY c.customer_id
+            ORDER BY s.start_date, s.subscription_id
+        ) AS previous_plan,
+
+        LAG(s.monthly_charges) OVER (
+            PARTITION BY c.customer_id
+            ORDER BY s.start_date, s.subscription_id
+        ) AS previous_charges
+
+    FROM customers c
+    JOIN customer_accounts ca
+        ON c.customer_id = ca.customer_id
+    JOIN subscriptions s
+        ON ca.account_id = s.account_id
+),
+
+plan_comparison AS (
+
+    SELECT
+        customer_id,
+        previous_plan,
+        plan_type AS current_plan,
+        previous_charges,
+        monthly_charges AS current_charges,
+
+        monthly_charges - previous_charges AS charge_difference,
+
+        CASE
+            WHEN monthly_charges > previous_charges
+                THEN 'Upgrade'
+
+            WHEN monthly_charges < previous_charges
+                THEN 'Downgrade'
+
+            ELSE 'No Change'
+        END AS plan_change
+
+    FROM plan_history
+)
+
+SELECT *
+FROM plan_comparison
+WHERE previous_plan IS NOT NULL;
+
+
+"""
+Q2. Customer Payment Behaviour & Risk Segmentation
+Business scenario:
+
+Company identify karna chahti hai ki kaunse customers regular payments karte hain aur kaunse customers ka payment behaviour risky hai.
+
+Required output:
+Column	Meaning
+customer_id	Customer ID
+total_payments	Total transactions
+successful_payments	Successful transactions
+failed_payments	Failed transactions
+success_rate	Successful payment percentage
+payment_category	Good / Average / High Risk
+
+Tables:
+- customers
+- customer_accounts
+- subscriptions
+- payments
+Conditions:
+- Success Rate = Successful Payments / Total Payments × 100
+- Good: Success Rate >= 80%
+- Average: Success Rate >= 50% and less than 80%
+- High Risk: Success Rate less than 50%
+
+""""
+
+with customer_analysis as (
+	select 
+		c.customer_id,
+        count(p.payment_id) as total_payments ,
+        count(
+			case 
+				when p.payment_status = "Successful"
+                then 1
+                end
+        ) as successful_payments,
+        count(
+			case
+				when p.payment_status = "Failed"
+                then 1 
+                end
+        ) as failed_payments ,
+		count(
+			case 
+				when p.payment_status = "Successful"
+                then 1
+                end
+        ) * 100 / count(p.payment_id) as success_rate
+        from customers c
+			join customer_accounts ca
+		on c.customer_id = ca.customer_id
+			join subscriptions s 
+		on s.account_id = ca.account_id 
+			join payments p 
+		on s.subscription_id = p.subscription_id
+	group by 
+		c.customer_id
+)
+
+select 
+	customer_id,
+    total_payments,
+    successful_payments ,
+    failed_payments ,
+    success_rate,
+    case
+		when success_rate >= 80 then "Good"
+        when success_rate >= 50 then "Average"
+        else "High Risk"
+        end
+        as payment_category
+	from customer_analysis
+    order by success_rate asc ;
