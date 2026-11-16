@@ -2084,3 +2084,173 @@ select
         as payment_category
 	from customer_analysis
     order by success_rate asc ;
+
+"""
+
+Q3. Monthly Running Revenue Analysis
+Business scenario:
+
+Company jaana chahti hai ki har month successful payments se kitna revenue generate hua aur financial year ke andar cumulative revenue kitna grow hua.
+
+Required output:
+Column	Meaning
+payment_month	Payment month
+monthly_revenue	Us month ka successful revenue
+running_revenue	January se current month tak cumulative revenue
+previous_month_revenue	Previous month ka revenue
+revenue_growth	Current vs previous month revenue difference
+
+Tables: payments
+
+Conditions:
+- Sirf Successful payments.
+- Month-wise revenue calculate karna hai.
+- Running total chronological order mein hona chahiye.
+- Revenue growth = Current Month Revenue − Previous Month Revenue.Q3. Monthly Running Revenue Analysis
+Business scenario:
+
+Company jaana chahti hai ki har month successful payments se kitna revenue generate hua aur financial year ke andar cumulative revenue kitna grow hua.
+
+Required output:
+Column	Meaning
+payment_month	Payment month
+monthly_revenue	Us month ka successful revenue
+running_revenue	January se current month tak cumulative revenue
+previous_month_revenue	Previous month ka revenue
+revenue_growth	Current vs previous month revenue difference
+
+Tables: payments
+
+Conditions:
+- Sirf Successful payments.
+- Month-wise revenue calculate karna hai.
+- Running total chronological order mein hona chahiye.
+- Revenue growth = Current Month Revenue − Previous Month Revenue.
+
+"""
+
+WITH monthly_revenue AS (
+    SELECT
+        DATE_FORMAT(payment_date, '%Y-%m') AS payment_month,
+        SUM(payment_amount) AS monthly_revenue
+    FROM payments
+    WHERE payment_status = 'Successful'
+    GROUP BY DATE_FORMAT(payment_date, '%Y-%m')
+
+),
+
+revenue_analysis AS (
+
+    SELECT
+        payment_month,
+        monthly_revenue,
+
+        SUM(monthly_revenue) OVER (
+            ORDER BY payment_month
+        ) AS running_revenue,
+        LAG(monthly_revenue) OVER (
+            ORDER BY payment_month
+        ) AS previous_month_revenue
+
+    FROM monthly_revenue
+
+)
+
+SELECT
+    payment_month,
+    monthly_revenue,
+    running_revenue,
+    previous_month_revenue,
+    monthly_revenue - previous_month_revenue AS revenue_growth
+FROM revenue_analysis
+ORDER BY payment_month;
+
+
+"""
+Day 12 — Q5: Plan-wise Monthly Revenue Performance
+Business scenario: Company compare karna chahti hai ki Basic, Standard aur Premium plans mein monthly revenue ka performance kaise change ho raha hai.
+
+Tables: payments, subscriptions
+
+Required output:
+Column	Meaning
+payment_month	Month
+plan_type	Subscription plan
+monthly_revenue	Successful payment revenue
+previous_month_revenue	Previous month revenue (same plan)
+revenue_growth	Revenue difference
+running_revenue	Plan-wise cumulative revenue
+revenue_rank	Month ke andar plan revenue ranking
+revenue_trend	Growth / Decline / No Previous Data
+
+Conditions:
+- Sirf Successful payments.
+- Month aur plan-wise revenue.
+- Previous month comparison same plan ke andar.
+- Running revenue bhi same plan ke andar.
+- Har month plans ki revenue ranking highest to lowest.
+
+"""
+
+WITH monthly_plan_revenue AS (
+    SELECT
+        s.plan_type,
+        DATE_FORMAT(p.payment_date, '%Y-%m') AS payment_month,
+        SUM(
+            CASE
+                WHEN p.payment_status = 'Successful'
+                THEN p.payment_amount
+                ELSE 0
+            END
+        ) AS monthly_revenue
+    FROM payments p
+    JOIN subscriptions s
+        ON p.subscription_id = s.subscription_id
+    GROUP BY
+        s.plan_type,
+        DATE_FORMAT(p.payment_date, '%Y-%m')
+),
+
+plan_revenue_analysis AS (
+    SELECT
+        plan_type,
+        payment_month,
+        monthly_revenue,
+        LAG(monthly_revenue) OVER (
+            PARTITION BY plan_type
+            ORDER BY payment_month
+        ) AS previous_month_revenue,
+        SUM(monthly_revenue) OVER (
+            PARTITION BY plan_type
+            ORDER BY payment_month
+        ) AS running_revenue,
+        DENSE_RANK() OVER (
+            PARTITION BY payment_month
+            ORDER BY monthly_revenue DESC
+        ) AS revenue_rank
+    FROM monthly_plan_revenue
+),
+
+final_analysis AS (
+    SELECT
+        plan_type,
+        payment_month,
+        monthly_revenue,
+        previous_month_revenue,
+        running_revenue,
+        revenue_rank,
+        monthly_revenue - previous_month_revenue AS revenue_growth ,
+        CASE
+            WHEN previous_month_revenue IS NULL
+                THEN 'No Previous Data'
+            WHEN monthly_revenue > previous_month_revenue
+                THEN 'Growth'
+            WHEN monthly_revenue < previous_month_revenue
+                THEN 'Decline'
+            ELSE 'No Change'
+        END AS revenue_trend
+    FROM plan_revenue_analysis
+)
+
+SELECT *
+FROM final_analysis;
