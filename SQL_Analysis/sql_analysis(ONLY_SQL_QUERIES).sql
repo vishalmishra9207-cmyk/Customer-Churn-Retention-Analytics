@@ -1281,3 +1281,39 @@ final_analysis AS (
 
 SELECT *
 FROM final_analysis;
+
+
+with customer_revenue as (
+	select 	
+		c.customer_id,
+        sum(
+			case
+				when p.payment_status = "Successful"
+                then p.payment_amount
+                else 0 
+                end
+        ) as total_successful_revenue,
+        count(
+			case 
+				when p.payment_status = "Successful"
+                then 1 
+                end 
+        ) as total_successful_payments,
+        count(
+			case
+				when p.payment_status = "Failed"
+                then 1 
+                end
+        ) as total_failed_payments
+	from customers c 
+		join customer_accounts ca 
+	on c.customer_id = ca.customer_id
+		join subscriptions s
+	on s.account_id = ca.account_id
+		join payments p 
+	on p.subscription_id = s.subscription_id
+    group by 
+		c.customer_id
+)
+
+select * from customer_revenue ;
