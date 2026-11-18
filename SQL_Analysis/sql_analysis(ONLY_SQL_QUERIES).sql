@@ -1314,6 +1314,70 @@ with customer_revenue as (
 	on p.subscription_id = s.subscription_id
     group by 
 		c.customer_id
-)
+) ,
+customer_retention as (
+    select
+        customer_id,
+        retention_status
+    from (
+        select
+            customer_id,
+            retention_status,
+            row_number() over (
+                partition by customer_id
+                order by activity_date desc, activity_id desc
+            ) as rn
+        from retention_activity
+    ) ranked
+    where rn = 1
+) ,
+customer_segmentation as (
+    select
+        ranked.*,
+        case
+            when revenue_bucket = 1
+                 and latest_retention_status = 'Churned'
+                then 'High Value Risk'
 
-select * from customer_revenue ;
+            when revenue_bucket = 1
+                 and latest_retention_status = 'Retained'
+                then 'High Value Active'
+
+            when latest_retention_status = 'Still Active'
+                then 'Needs Monitoring'
+
+            when revenue_bucket > 1
+                 and latest_retention_status = 'Churned'
+                then 'Low Value Risk'
+
+            when revenue_bucket > 1
+                 and latest_retention_status = 'Retained'
+                then 'Low Value Active'
+        end as customer_segment
+    from (
+        select
+            cr.customer_id,
+            cr.total_successful_revenue,
+            cr.total_successful_payments,
+            cr.total_failed_payments,
+            ct.retention_status as latest_retention_status,
+
+            NTILE(5) OVER (
+                ORDER BY cr.total_successful_revenue DESC
+            ) AS revenue_bucket,
+
+            DENSE_RANK() OVER (
+                ORDER BY cr.total_successful_revenue DESC
+            ) AS revenue_rank
+
+        from customer_revenue cr
+        join customer_retention ct
+            on cr.customer_id = ct.customer_id
+    ) ranked
+) 
+SELECT
+    customer_segment,
+    COUNT(*) AS total_customers
+FROM customer_segmentation
+GROUP BY customer_segment
+ORDER BY total_customers DESC;
