@@ -2035,7 +2035,7 @@ Conditions:
 - Average: Success Rate >= 50% and less than 80%
 - High Risk: Success Rate less than 50%
 
-""""
+"""
 
 with customer_analysis as (
 	select 
@@ -2254,3 +2254,5 @@ final_analysis AS (
 
 SELECT *
 FROM final_analysis;
+
+SELECT * from payments;
