@@ -1381,3 +1381,6 @@ SELECT
 FROM customer_segmentation
 GROUP BY customer_segment
 ORDER BY total_customers DESC;
+
+
+select * from payments ORDER BY payment_date desc ;
